@@ -1,0 +1,63 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#030b23"><title>Affiliate dashboard · 12x12</title><link rel="icon" href="/assets/mark.svg"><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/motion.css"><link rel="stylesheet" href="/pages.css"><script type="module" src="/motion.js"></script><script type="module" src="/pages.js"></script><link rel="stylesheet" href="/rebuild.css"><link rel="stylesheet" href="/manual.css"><link rel="stylesheet" href="/affiliate.css"></head><body data-page="referrals"><div class="atmosphere" aria-hidden="true"><div class="ambient-light"></div><div class="star-dust"></div></div><a class="skip-link" href="#page-content">Skip to content</a><header class="top"><div class="top-inner"><a class="brand" href="/"><img src="/assets/mark.svg" alt="">12x12</a><nav aria-label="Main navigation"><a href="/">Home</a><a href="/plan">Plans</a><a href="/referrals" class="active" aria-current="page">Referrals</a><a href="/faq">FAQ</a><a href="/cashier">Wallet</a></nav><div class="account-nav"><a class="plain" href="/login">Log in</a><a class="primary" href="/register">Sign up</a></div></div></header><main id="page-content" class="new-page affiliate">
+ <header class="affiliate-heading page-banner referrals-banner">
+  <div><h1>Affiliate dashboard</h1><p class="secondary">Track commissions, share your invite, and see which plans your referrals unlock.</p></div>
+  <a class="muted-button" href="/profile#history" id="affiliate-history" hidden><i data-i="calendar"></i> Earnings history</a>
+ </header>
+ <p id="affiliate-message" class="feedback" role="status">Loading dashboard…</p>
+ <section id="affiliate-sign-in" class="panel affiliate-sign-in" hidden>
+  <h2>Sign in to see your referrals</h2>
+  <p class="secondary">Earn a 12% commission on a direct referral’s first funded investment and 1% of the invested amount each day their plan runs.</p>
+  <div class="affiliate-actions"><a class="primary" href="/login?next=%2Freferrals">Log in</a><a class="muted-button" href="/register?next=%2Freferrals">Sign up</a></div>
+ </section>
+ <div id="affiliate-dashboard" hidden>
+  <div class="affiliate-metrics" role="group" aria-label="Affiliate overview">
+   <article class="panel"><h2>Wallet commissions <span class="affiliate-icon"><i data-i="coins"></i></span></h2><strong id="affiliate-total"></strong><p>All time · USD</p></article>
+   <article class="panel"><h2>Funded referrals <span class="affiliate-icon"><i data-i="users"></i></span></h2><strong id="affiliate-funded"></strong><p>Direct referrals who invested</p></article>
+   <article class="panel"><h2>Active referred plans <span class="affiliate-icon"><i data-i="layers"></i></span></h2><strong id="affiliate-active"></strong><p>Wallet plans in progress</p></article>
+   <article class="panel"><h2>Daily commissions <span class="affiliate-icon"><i data-i="trend"></i></span></h2><strong id="affiliate-daily"></strong><p>All time · USD</p></article>
+  </div>
+  <div class="affiliate-grid">
+   <section class="panel affiliate-activity" aria-labelledby="activity-heading">
+    <div class="affiliate-panel-head">
+     <h2 id="activity-heading">Commission activity</h2>
+     <div id="affiliate-ranges" class="affiliate-ranges" role="group" aria-label="Commission activity range">
+      <button type="button" data-days="7" aria-pressed="false">7 days</button>
+      <button type="button" data-days="30" aria-pressed="true">30 days</button>
+      <button type="button" data-days="90" aria-pressed="false">90 days</button>
+     </div>
+    </div>
+    <div class="affiliate-chart-summary" role="status"><strong id="affiliate-range-total"></strong><span id="affiliate-range-label"></span></div>
+    <div class="affiliate-chart">
+     <div id="affiliate-y-axis" class="affiliate-y-axis" aria-hidden="true"></div>
+     <div id="affiliate-plot" class="affiliate-plot" role="img"></div>
+     <div id="affiliate-x-axis" class="affiliate-x-axis" aria-hidden="true"></div>
+    </div>
+    <div class="affiliate-chart-footer">
+     <div class="affiliate-legend"><span><b></b> First investment</span><span><b></b> Daily commission</span></div>
+     <span>UTC</span>
+    </div>
+   </section>
+   <section class="panel affiliate-invite" aria-labelledby="invite-heading">
+    <h2 id="invite-heading">Invite a referral</h2>
+    <p>Share your link before their first investment.</p>
+    <div class="affiliate-terms" aria-label="Commission rates">
+     <div><strong>12%</strong><span>First funded investment</span></div>
+     <div><strong>1%</strong><span>Daily while the plan runs</span></div>
+    </div>
+    <div id="affiliate-link-group" hidden>
+     <label for="affiliate-link">Your referral link</label>
+     <div class="affiliate-copy-row">
+      <input id="affiliate-link" readonly>
+      <button type="button" class="primary" id="affiliate-copy"><i data-i="copy"></i> <span>Copy link</span></button>
+     </div>
+     <p id="affiliate-copy-status" class="affiliate-copy-status" role="status"></p>
+    </div>
+    <div id="affiliate-link-locked" hidden><p>Complete your first investment to unlock your link.</p><a class="primary" href="/plan">View plans <i data-i="arrow-right"></i></a></div>
+   </section>
+  </div>
+  <section class="panel affiliate-unlocks" aria-labelledby="unlocks-heading">
+   <div class="affiliate-panel-head"><div><h2 id="unlocks-heading">Plan unlocks</h2><p class="secondary">Each funded direct referral counts once toward both plans.</p></div></div>
+   <div id="affiliate-plan-progress" class="affiliate-progress-grid"></div>
+  </section>
+ </div>
+</main><footer><a href="/" class="footer-brand"><img src="/assets/mark.svg" alt="">12x12</a><span>USD amounts</span><a href="/plan">Plan terms</a><a href="/faq">Help</a></footer><div id="toast" role="status"></div></body></html>

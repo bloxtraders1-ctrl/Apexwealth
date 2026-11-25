@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+ <meta charset="utf-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+ <meta name="robots" content="noindex,nofollow">
+ <meta name="theme-color" content="#0a1425">
+ <title>Mobile layout review · 12x12</title>
+ <link rel="icon" href="/assets/mark.svg">
+ <link rel="stylesheet" href="/style.css">
+ <link rel="stylesheet" href="/mobile-review.css">
+ <script type="module" src="/mobile-review.js"></script>
+<script type="module" src="/support-launcher.js"></script></head>
+<body class="mobile-review">
+ <main>
+  <header class="review-heading">
+   <div>
+    <h1>Mobile layout review</h1>
+    <p>Choose a page and a phone size, then use the preview like the site.</p>
+   </div>
+   <a class="muted-button" href="/">Back to site</a>
+  </header>
+
+  <div class="review-toolbar" aria-label="Mobile preview controls">
+   <label>Page
+    <select id="review-page">
+     <option value="/">Home</option>
+     <option value="/plan">Plans</option>
+     <option value="/referrals">Referrals</option>
+     <option value="/?wallet=deposit">Wallet</option>
+     <option value="/profile">Profile</option>
+     <option value="/faq">FAQ</option>
+     <option value="/login">Log in</option>
+     <option value="/register">Sign up</option>
+    </select>
+   </label>
+   <label>Phone size
+    <select id="review-size">
+     <option value="360x800">Compact · 360 × 800</option>
+     <option value="390x844" selected>Standard · 390 × 844</option>
+     <option value="430x932">Large · 430 × 932</option>
+    </select>
+   </label>
+   <div class="review-actions">
+    <button class="muted-button" id="review-zoom" type="button" aria-pressed="false">Actual size</button>
+    <button class="muted-button" id="review-reload" type="button">Reload</button>
+    <a class="plain" id="review-open" href="/" target="_blank" rel="noopener">Open page</a>
+   </div>
+  </div>
+
+  <section class="review-stage" aria-label="Interactive phone preview">
+   <p class="review-dimensions" id="review-dimensions">390 × 844 px</p>
+   <div class="review-display" id="review-display">
+    <div class="review-fit" id="review-fit">
+     <div class="review-phone" id="review-phone">
+      <iframe id="review-frame" src="/" title="Home mobile preview" width="390" height="844"></iframe>
+     </div>
+    </div>
+   </div>
+  </section>
+ </main>
+</body>
+</html>

@@ -1,0 +1,44 @@
+.ledger{margin:28px 0 30px;padding:clamp(19px,2.3vw,34px);border:1px solid #315783;border-radius:18px;background:radial-gradient(ellipse at 98% 0%,#15407255,transparent 58%),linear-gradient(115deg,#10203b,#07152b 80%);box-shadow:inset 0 1px #87d8ff10}
+.ledger-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ledger-kicker{color:#8bcbe2;font:10px var(--mono);letter-spacing:1.7px}.ledger-head h2{font-size:clamp(27px,3vw,40px);font-weight:540;letter-spacing:-1.6px;margin-top:5px}
+.cashier-state{display:inline-flex;align-items:center;gap:7px;font:11px var(--mono);color:#c8d7e8;background:#12243a;border:1px solid #38526f;border-radius:22px;padding:7px 12px}.cashier-state:before{content:'';width:6px;height:6px;border-radius:50%;background:#9daec4}
+.ledger-stats{display:grid;grid-template-columns:1fr 1fr;margin:24px 0 21px;border-top:1px solid #29425d;border-bottom:1px solid #29425d}.ledger-stat{position:relative;padding:22px 8px 20px}.ledger-stat+article{border-left:1px solid #29425d;padding-left:clamp(12px,3vw,42px)}.ledger-stat h3{font-size:14px;font-weight:520;color:#c5d4e8;margin-bottom:7px}.ledger-stat strong{font:560 clamp(30px,3.9vw,57px)/1.05 Geist,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.055em;color:#ebf8ff;overflow-wrap:anywhere}.ledger-stat+.ledger-stat strong{color:#84eaff}.denom{color:#99b4d3;font:11px var(--mono);margin-left:7px}.ledger-stat p{color:#9aabc3;font-size:12px;margin:6px 0 0}.stat-icon{float:right;margin:0 18px 0 8px;color:#62bdf6;font-size:24px}
+.ledger-log summary{cursor:pointer;font-size:15px;font-weight:550}.ledger-log summary:focus-visible{outline:2px solid #79e9ff}.ledger-log #recent-records{color:#aabdce;font-size:13px;margin-top:12px}.ledger-log table{border-collapse:collapse;width:100%;text-align:left;font-size:13px}.ledger-log th,.ledger-log td{padding:9px 6px;border-bottom:1px solid #243c54}.ledger-log th{font-size:11px;color:#92adc9;font-weight:500}.ledger-log th:last-child,.ledger-log td:last-child{text-align:right}.ledger-log td:nth-child(2){font-variant-numeric:tabular-nums;color:#dceeff}
+@media(max-width:600px){.ledger{padding:16px}.ledger-stats{margin:17px 0}.stat-icon{display:none}.ledger-stat{padding:15px 0}.denom{display:block;margin:5px 0}.ledger-head h2{font-size:25px}.cashier-state{font-size:9px;padding:5px 7px}.ledger-log table{font-size:11px}}
+.investment-banners{display:grid;grid-template-columns:1fr 1fr;gap:15px;margin:24px 0}
+.invest-banner{position:relative;isolation:isolate;overflow:hidden;display:block;padding:clamp(20px,2.1vw,33px);border:1px solid #346396;border-radius:16px;background:radial-gradient(ellipse at right bottom,#124b74,transparent 63%),linear-gradient(115deg,#08172c,#103451);color:#f2f8ff}
+.relay-banner{border-color:#514a8c;background:radial-gradient(ellipse at right bottom,#4d397d,transparent 66%),linear-gradient(112deg,#14172f,#29204c)}
+.banner-copy{position:relative;max-width:70%;z-index:1}.banner-label{font:10px var(--mono);letter-spacing:1.3px;text-transform:uppercase;color:#95e8ff}.relay-banner .banner-label{color:#ccbdff}.banner-copy h2{margin:7px 0;font-size:clamp(23px,2.1vw,34px);line-height:1.06;letter-spacing:-1.1px;font-weight:590}.banner-copy p{font-size:13px;color:#c1d2e7;max-width:31ch;line-height:1.5}.banner-cta{display:inline-flex;gap:10px;align-items:center;font-size:12px;font-weight:630;color:#9be9ff;margin-top:17px}.relay-banner .banner-cta{color:#d4bfff}.invest-banner:hover{border-color:#89dcff}.invest-banner:focus-visible{outline-offset:2px}
+/* Documentary photographs from the ISS. A dark scrim protects text during the pan. */
+.banner-photo {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: 81%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 55%;
+  z-index: -2;
+}
+.invest-banner::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(90deg, #061225 12%, #07162bf0 31%, #0615299c 59%, #06152917 88%);
+}
+.relay-banner::before {
+  background: linear-gradient(90deg, #16122b 12%, #15132cf0 31%, #181329ad 60%, #18132918 88%);
+}
+.banner-copy p { color: #e1e9f2; }
+@keyframes banner-photo-pan {
+  from { transform: scale(1.07) translateX(1.7%); }
+  to { transform: scale(1.12) translateX(-1.5%); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .banner-photo { animation: banner-photo-pan 16s ease-in-out infinite alternate; }
+  .relay-banner .banner-photo { animation-direction: alternate-reverse; animation-duration: 21s; }
+}
+@media (max-width: 720px) {
+  .investment-banners { grid-template-columns: 1fr; gap: 12px; }
+  .banner-copy { max-width: 73%; }
+}
