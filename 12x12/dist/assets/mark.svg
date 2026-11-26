@@ -1,11 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 42 36">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
   <defs>
-    <linearGradient id="ice" x1="4" y1="3" x2="38" y2="33" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#f4fdff"/>
-      <stop offset=".56" stop-color="#84d8ff"/>
-      <stop offset="1" stop-color="#32a5ff"/>
+    <linearGradient id="metal" x1="7" y1="8" x2="34" y2="32" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#e4faff"/>
+      <stop offset=".46" stop-color="#75e0f3"/>
+      <stop offset="1" stop-color="#628aec"/>
     </linearGradient>
   </defs>
-  <rect x="1.5" y="1.5" width="39" height="33" rx="8" fill="#10213c" stroke="#416d98"/>
-  <path d="M8.5 12.5 13 9v18m7-13c0-2.8 2.3-5 5.3-5h2.1c2.7 0 4.6 1.8 4.6 4.2 0 2-1 3.4-3.4 5l-6.6 4.5c-1.1.8-2 2.3-2 4.3h12.5" fill="none" stroke="url(#ice)" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+  <rect x="1.5" y="1.5" width="37" height="37" rx="11" fill="#101d32" stroke="#426486"/>
+  <path fill="url(#metal)" d="M8 11h6.4L32 29h-6.4L8 11Zm17.6 0H32l-8.2 8.4-3.2-3.3L25.6 11ZM8 29l8.2-8.4 3.2 3.3-5 5.1H8Z"/>
 </svg>

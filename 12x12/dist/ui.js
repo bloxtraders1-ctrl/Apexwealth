@@ -31,13 +31,13 @@ export function calc(separate=true, tier=tiers[0]) {
  $('amount-error').textContent=valid?'':'Enter '+usd(min)+'–'+usd(max)+' with up to two decimal places.';
  if(valid){range.value=n;range.style.setProperty('--progress',((n-min)/(max-min)*100)+'%');}
  $('daily').textContent=valid?usd(daily):'—';$('term').textContent=valid?usd(daily*days):'—';
- $('principal-note').textContent=separate?'The '+days+'-day total excludes your invested principal, which unlocks at maturity and shares the daily withdrawal cap.':'The '+days+'-day total includes your invested principal. The daily withdrawal cap applies to all payouts.';
+ $('principal-note').textContent=separate?'Your invested principal unlocks separately at maturity. Crypto withdrawals are subject to the daily cap.':'The '+days+'-day total includes your invested principal. Crypto withdrawals are subject to the daily cap.';
  if(!valid){$('plot').replaceChildren();return;}
  const x=i=>50+i*516/days,y=i=>76-i*64.8/days;
  const line=Array.from({length:days},(_,j)=>' H'+x(j+1)+' V'+y(j+1)).join('');
  let grid='';for(const i of [0,days/2,days])grid+='<path d="M50 '+y(i)+' H566" stroke="#202b48" stroke-dasharray="3 5"/><text x="0" y="'+(y(i)+3)+'">$'+(Math.round(daily*i*100)/100).toLocaleString('en-US')+'</text>';
- let ticks='';for(const i of [0,Math.floor(days/4),days/2,Math.floor(3*days/4),days])ticks+='<text x="'+x(i)+'" y="96" text-anchor="'+(i===days?'end':i===0?'start':'middle')+'">Day '+i+'</text>';
- $('plot').innerHTML='<svg role="img" aria-label="Scheduled payouts increase in '+days+' daily steps from zero to '+usd(daily*days)+'" viewBox="0 0 570 100" preserveAspectRatio="none"><defs><linearGradient id="area" x2="0" y2="1"><stop stop-color="#67e8fa" stop-opacity=".2"/><stop offset="1" stop-color="#67e8fa" stop-opacity=".01"/></linearGradient></defs><g fill="#95a0bb" font-family="monospace" font-size="9">'+grid+ticks+'</g><path d="M50 76'+line+' V77H50Z" fill="url(#area)"/><path d="M50 76'+line+'" fill="none" stroke="#76eafa" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>';
+ let ticks='';for(const i of [0,Math.floor(days/4),Math.floor(days/2),Math.floor(3*days/4),days])ticks+='<text x="'+x(i)+'" y="96" text-anchor="'+(i===days?'end':i===0?'start':'middle')+'">Day '+i+'</text>';
+ $('plot').innerHTML='<svg role="img" aria-label="Projected wallet credits increase in '+days+' daily steps from zero to '+usd(daily*days)+'" viewBox="0 0 570 100" preserveAspectRatio="none"><defs><linearGradient id="area" x2="0" y2="1"><stop stop-color="#67e8fa" stop-opacity=".2"/><stop offset="1" stop-color="#67e8fa" stop-opacity=".01"/></linearGradient></defs><g fill="#95a0bb" font-family="monospace" font-size="9">'+grid+ticks+'</g><path d="M50 76'+line+' V77H50Z" fill="url(#area)"/><path d="M50 76'+line+'" fill="none" stroke="#76eafa" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>';
 }
 export function renderMetrics() {
   const facts = [

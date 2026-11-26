@@ -85,14 +85,14 @@ export function walletAccounts({read,all,run,user,now,separate}){
    await run('INSERT INTO wallet_profiles VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET display_name=excluded.display_name',user,name);
    return {name};
   },
-  async access(referralData={}){
-   const [wallet,reserveBalance,fundedReferrals,hold,referral]=await Promise.all([
-    balance(),reserve(),referrals(),read('SELECT held FROM manual_account_controls WHERE user_id=?',user),sponsorship(referralData)
+  async access(){
+   const [wallet,fundedReferrals,hold]=await Promise.all([
+    balance(),referrals(),read('SELECT held FROM manual_account_controls WHERE user_id=?',user)
    ]);
-   const availablePlans=tiers.filter(tier=>planCredits(tier.min*100,tier,separate,Boolean(referral.sponsor),!referral.wasFunded).liability<=reserveBalance).map(tier=>tier.id);
    const eligibility=Object.fromEntries(tiers.map(tier=>[tier.id,
-    hold?.held?'hold':fundedReferrals<tier.referrals?'referrals':wallet<tier.min*100?'balance':!availablePlans.includes(tier.id)?'reserve':'available'
+    hold?.held?'hold':fundedReferrals<tier.referrals?'referrals':wallet<tier.min*100?'balance':'available'
    ]));
+   const availablePlans=tiers.filter(tier=>eligibility[tier.id]==='available').map(tier=>tier.id);
    return {userId:user,balance:wallet,available:availablePlans.includes(1),availablePlans,fundedReferrals,separate,eligibility,startDay:Math.floor(now/86400)};
   },
   async invest(body){

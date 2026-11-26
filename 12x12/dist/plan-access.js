@@ -19,14 +19,11 @@ function referralParams(){
  return {referral:sessionStorage.getItem('apex-wallet-referral'),legacyReferral:sessionStorage.getItem('apex-ref')};
 }
 function loadAccess(){
- const query=new URLSearchParams();
- for(const [key,value] of Object.entries(referralParams()))if(value)query.set(key,value);
- return cashier('invest?'+query);
+ return cashier('invest');
 }
 const accessRequest=loadAccess().then(value=>access=value).catch(()=>null);
 const availabilityMessages={
- hold:'Your wallet is on hold. Contact the cashier administrator.',
- reserve:'The reward reserve cannot currently fund the minimum investment for this plan.'
+ hold:'Your wallet is on hold. Contact the cashier administrator.'
 };
 function availabilityMessage(tier){
  const state=access?.eligibility[tier.id];
@@ -86,11 +83,11 @@ async function open(tier){
    panel.append(deposit);
   }
   if(state==='referrals')panel.append(link('/referrals','View referral progress','muted-button'));
-  if(state==='reserve'&&access.admin)panel.append(link('/admin/cashier?tab=settings#investment-reserve','Open reward reserve settings','primary'));
   return;
  }
  const form=element('form',null,'manual-form');
  form.append(element('p',tier.rate+'% daily for '+tier.days+' days · Investment limits '+cents(tier.min*100)+'–'+cents(tier.max*100),'secondary'));
+ form.append(element('p','Daily credits post to your USD wallet. The cashier sends crypto withdrawals separately.','secondary'));
  const amount=field(form,'Investment amount (USD)',{type:'number',min:tier.min,max:Math.min(tier.max,access.balance/100),step:0.01,required:true,inputMode:'decimal'});
  const submit=submitButton(form,'Confirm investment'), feedback=notice();
  form.append(feedback);
@@ -105,7 +102,7 @@ async function open(tier){
 function planTerms(tier,wallet,networks){
  const formatter=new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
  const date=day=>formatter.format(new Date((access.startDay+day)*86400000));
- const fees=networks.options.filter(option=>option.enabled).map(option=>option.withdrawal_fee);
+ const fees=networks.options.filter(option=>option.withdrawal_enabled).map(option=>option.withdrawal_fee);
  const low=Math.min(...fees),high=Math.max(...fees);
  const feeText=fees.length?cents(low)+(high===low?'':'–'+cents(high)+' depending on network'):'No active withdrawal network';
  const terms=element('section',null,'invest-terms');

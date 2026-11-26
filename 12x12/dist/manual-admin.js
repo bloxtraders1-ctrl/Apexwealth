@@ -245,20 +245,19 @@ async function showSettings(content){
  const available=element('strong');
  const walletFunds=element('strong');
  const readiness=element('p',null,'secondary');
- const reserveSummary=makeDetails([['Available reward reserve',available],['Your approved USD wallet balance',walletFunds]]);
+ const reserveSummary=makeDetails([['Funding minus recorded plan obligations',available],['Your approved USD wallet balance',walletFunds]]);
  const updateReserve=(reserveBalance,walletBalance)=>{
   available.textContent=cents(reserveBalance);
   walletFunds.textContent=cents(walletBalance);
-  const shortfall=reserve.minimum-reserveBalance;
-  readiness.textContent=shortfall>0
-   ?'Add '+cents(shortfall)+' more to cover one minimum Plan 1 investment without a referral commission.'
-   :'The reserve covers at least one minimum Plan 1 investment without a referral commission.';
+  readiness.textContent=reserveBalance<0
+   ?'Recorded obligations exceed funding by '+cents(-reserveBalance)+'.'
+   :'Recorded funding covers the tracked plan obligations.';
  };
  updateReserve(reserve.available,reserve.wallet);
- reserveForm.append(element('h3','Investment reward reserve'),reserveSummary,readiness,
-  element('p','Transfers approved USD from your wallet to fund plan credits and referral commissions. Funding the reserve is final.','secondary'));
+ reserveForm.append(element('h3','Plan funding'),reserveSummary,readiness,
+  element('p','Use operator funds to cover plan credits and referral commissions. Transfers from your approved wallet balance are final.','secondary'));
  const amount=field(reserveForm,'Amount to transfer (USD)',{type:'number',min:.01,step:.01,max:1000000,required:true});
- const fund=submitButton(reserveForm,'Fund reward reserve'),reserveFeedback=notice();
+ const fund=submitButton(reserveForm,'Add plan funding'),reserveFeedback=notice();
  reserveForm.append(reserveFeedback);
  let pending;
  bindForm(reserveForm,fund,reserveFeedback,async()=>{

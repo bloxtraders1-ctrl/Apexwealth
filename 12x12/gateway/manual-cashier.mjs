@@ -18,7 +18,6 @@ const id=()=>crypto.randomUUID();
 const quoteScale=12;
 const identity=/^[a-f0-9-]{36}$/;
 const messages=[
- ['wallet rewards underfunded','The reward reserve cannot cover this investment amount.'],
  ['wallet referral changed','Your referral was just recorded. Retry the investment.'],
  ['manual account held','This account is on cashier hold.'],
  ['manual insufficient balance','Insufficient available USD balance.'],
@@ -106,7 +105,7 @@ export async function manualCashier(req,env,user,{price=spotPrice,clock=()=>Math
    if(route==='profile')return json(await wallet.profile());
    if(route==='affiliate')return json(await wallet.affiliateDashboard());
    if(route==='profile/history')return json(await wallet.history(url.searchParams.get('offset')));
-   if(route==='invest')return json({...await wallet.access({referral:url.searchParams.get('referral'),legacyReferral:url.searchParams.get('legacyReferral')}),admin});
+   if(route==='invest')return json({...await wallet.access(),admin});
    if(route==='admin/reward-reserve')return json(await wallet.reserveStatus());
    if(route==='me')return json({userId:user,admin});
    if(route==='options'||route==='admin/options'){

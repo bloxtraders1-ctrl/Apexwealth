@@ -3,8 +3,10 @@ import {api,element,link,setKey} from './cashier-api.js';
 import {icon} from './ui.js';
 const nextParam=new URLSearchParams(location.search).get('next');
 let target;
-try{target=new URL(nextParam||'/cashier',location.origin);}catch{target=new URL('/cashier',location.origin);}
-const next=target.origin===location.origin&&['/','/plan','/cashier','/admin/cashier','/cashier-review','/profile','/portfolio','/deposit','/withdraw','/referrals','/faq','/how-it-works'].includes(target.pathname)?target.pathname+target.search:'/cashier';
+try{target=new URL(nextParam||'/',location.origin);}catch{target=new URL('/',location.origin);}
+const authPages=['/','/plan','/admin/cashier','/cashier-review','/profile','/portfolio','/referrals','/faq','/how-it-works'];
+target.searchParams.delete('wallet');
+const next=target.origin===location.origin&&authPages.includes(target.pathname)?target.pathname+target.search:'/';
 const mode=document.body.dataset.page;
 const form=document.getElementById('auth-form');
 if(form){

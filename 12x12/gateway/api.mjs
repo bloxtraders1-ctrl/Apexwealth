@@ -19,6 +19,10 @@ export async function handleAPI(req,env,user,mode,chainOverride){
  try{
   const url=new URL(req.url),route=url.pathname.slice(5),cfg=env.settings||settings;
   const enabled=Boolean(cfg.vaultAddress&&cfg.factoryAddress);
+  if(route==='launch'&&req.method==='GET'){
+   const schedule=await env.DB.prepare('SELECT launch_at AS launchAt, unixepoch() AS now FROM platform_launch WHERE id=1').bind().first();
+   return json(schedule);
+  }
   if(route==='status')return json({enabled,signedIn:!!user,mode,environment:env.accountEnvironment||mode,separatePrincipal:cfg.separatePrincipal,capOnBalance:cfg.capOnBalance});
   if(route==='settlement-status'&&req.method==='GET'){
    const cfgState={depositReady:false,withdrawalReady:false};
@@ -28,6 +32,8 @@ export async function handleAPI(req,env,user,mode,chainOverride){
    return json({...ready,reason:ready.reason||(ready.depositReady?null:'reserve')});
   }
   if(route==='statistics' && req.method==='GET'){
+   const admins=(env.APEX_CASHIER_ADMIN_IDS||'').split(',').map(id=>id.trim());
+   check(user&&admins.includes(user),'Cashier administrator access required.',403);
    const result=await env.DB.prepare(`
     WITH totals AS (
      SELECT COALESCE(SUM(CASE WHEN kind='investment' THEN amount ELSE 0 END),0) AS invested,

@@ -353,7 +353,7 @@ test('Approve and Reject race for the same pending payout and only one can win',
  }
 });
 
-test('wallet investing uses approved balance, reserves the full liability and is idempotent',async()=>{
+test('wallet investing uses approved balance without requiring operator prefunding and is idempotent',async()=>{
  const t=setup();
  const now=Math.floor(Date.now()/1000);
  t.tick(now-1_795_500_000);
@@ -361,7 +361,7 @@ test('wallet investing uses approved balance, reserves the full liability and is
  const userDeposit=await t.deposit('100',hash('a'));
  const adminDeposit=await t.deposit('300',hash('b'),admin);
  const order={plan:1,amount:'100',id:crypto.randomUUID()};
- const underfunded={...order,id:crypto.randomUUID(),amount:'100.01'};
+ const overBalance={...order,id:crypto.randomUUID(),amount:'100.01'};
  const reserve={id:crypto.randomUUID(),amount:'200'};
  assert.equal((await t.call('invest',order)).code,409);
  assert.equal((await t.call('admin/reward-reserve',reserve)).code,403);
@@ -371,28 +371,52 @@ test('wallet investing uses approved balance, reserves the full liability and is
  assert.deepEqual(await t.call('admin/reward-reserve',null,admin),{code:200,available:0,wallet:0,minimum:1728});
  assert.equal((await t.call('admin/reward-reserve',reserve,admin)).code,409);
  await t.approve(userDeposit);
- assert.equal((await t.call('invest')).eligibility[1],'reserve');
- assert.match((await t.call('invest',order)).error,/reward reserve/i);
- await t.approve(adminDeposit);
- const funding=await Promise.all([t.call('admin/reward-reserve',reserve,admin),t.call('admin/reward-reserve',reserve,admin)]);
- assert.deepEqual(funding.map(result=>result.available),[20000,20000]);
- assert.equal((await t.call('wallet',null,admin)).balance,10000);
- assert.deepEqual((await t.call('invest')).availablePlans,[1,2]);
  assert.equal((await t.call('invest')).eligibility[1],'available');
+ assert.deepEqual((await t.call('invest')).availablePlans,[1]);
+ assert.equal((await t.call('invest',overBalance)).code,409);
+ assert.equal((await t.call('invest',{...order,id:crypto.randomUUID(),plan:2})).code,409);
  assert.equal((await t.call('invest')).startDay,Math.floor(now/86400));
  assert.equal((await t.call('invest')).admin,false);
  assert.equal((await t.call('invest',null,admin)).admin,true);
- assert.equal((await t.call('invest',underfunded)).code,409);
- assert.equal((await t.call('invest',{...order,plan:2})).code,409);
  const results=await Promise.all([t.call('invest',order),t.call('invest',order),t.call('invest',{...order,id:crypto.randomUUID()})]);
  assert.deepEqual(results.map(result=>result.code),[200,200,409]);
  assert.equal((await t.call('wallet')).balance,0);
  assert.equal((await t.call('wallet')).daily_remaining,1200);
- assert.equal((await t.call('admin/reward-reserve',null,admin)).available,5600);
+ assert.equal((await t.call('admin/reward-reserve',null,admin)).available,-14400);
+ await t.approve(adminDeposit);
+ const funding=await Promise.all([t.call('admin/reward-reserve',reserve,admin),t.call('admin/reward-reserve',reserve,admin)]);
+ assert.deepEqual(funding.map(result=>result.available),[5600,5600]);
+ assert.equal((await t.call('wallet',null,admin)).balance,10000);
  assert.equal((await t.call('invest',{...order,amount:'99'})).code,409);
  assert.equal((await t.call('invest',order,other)).code,409);
  assert.deepEqual((await t.call('profile/history')).rows.map(row=>row.kind).sort(),['deposit','investment']);
  assert.throws(()=>t.raw('DELETE FROM wallet_plans').run(),/immutable investment/);
+});
+
+test('all three funded plans credit their daily amounts at midnight UTC without operator prefunding',async()=>{
+ const t=setup();
+ const midnight=Math.floor(Date.now()/86400000)*86400;
+ t.tick(midnight-1-1_795_500_000);
+ await t.configure();
+ await t.approve(await t.deposit('262'));
+ const addLegacyReferral=(id,owner,referrer)=>t.raw(`INSERT INTO receipts
+  (id,user_id,payout,amount,referrer,receiver,factory,vault,created,stage)
+  VALUES(?,?,?,12000000,?,?,'factory','vault',?,'active')`,id,owner,destination,referrer,id,midnight-2).run();
+ addLegacyReferral('sponsor-address',investor,'unattributed');
+ for(let i=0;i<10;i++)addLegacyReferral('referral-'+i,'referral-'+i,'sponsor-address');
+ assert.deepEqual((await t.call('invest')).availablePlans,[1,2,3]);
+ for(const [plan,amount] of [[1,'12'],[2,'50'],[3,'200']]){
+  assert.equal((await t.call('invest',{plan,amount,id:crypto.randomUUID()})).code,200);
+ }
+ assert.equal(t.raw('SELECT COUNT(*) AS n FROM wallet_reward_funds').first().n,0);
+ const readCredits=async()=>{
+  const {rows}=await t.call('profile/history');
+  return rows.filter(row=>row.kind==='plan payout').map(({plan,amount,created})=>[plan,amount,created]).sort((a,b)=>a[0]-b[0]);
+ };
+ const expected=[[1,144,midnight],[2,750,midnight],[3,4000,midnight]];
+ assert.deepEqual(await readCredits(),expected);
+ assert.deepEqual(await readCredits(),expected);
+ assert.equal((await t.call('wallet')).balance,4894);
 });
 
 test('profile name stays private and referral history includes each UTC credit with one first-investment commission',async()=>{

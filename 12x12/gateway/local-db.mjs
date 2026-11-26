@@ -46,5 +46,8 @@ export function localDB(file){
  if(!db.prepare("SELECT 1 FROM sqlite_master WHERE name='manual_deposit_evidence_guard' AND instr(sql,?)>0").get("'cashier'")){
   db.exec('BEGIN;'+readFileSync('drizzle/0013_cashier_decisions.sql','utf8')+'COMMIT;');
  }
+ if(!db.prepare("SELECT 1 FROM sqlite_master WHERE name='platform_launch'").get()){
+  db.exec('BEGIN;'+readFileSync('drizzle/0014_launch_and_wallet_credits.sql','utf8')+'COMMIT;');
+ }
  return {prepare(s){const st=db.prepare(s);return {bind(...a){return {first:()=>st.get(...a),all:()=>({results:st.all(...a)}),run:()=>({meta:{changes:st.run(...a).changes}})};}};}};
 }

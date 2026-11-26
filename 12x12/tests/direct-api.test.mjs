@@ -48,9 +48,20 @@ test('receipt ownership, duplicate proof, API origin and queued withdrawals',asy
  assert.equal(queue.withdrawals[0].destination,destination);
  assert.equal((await request('withdraw',{...withdraw,timestamp,signature},'operator'))[0],403);
 });
-test('public statistics count only activated receipts and paid withdrawals and omit identities',async()=>{
+test('public launch schedule hides cashier totals from signed-out users and investors',async()=>{
  const DB=localDB(':memory:');
- const read=async()=> (await handleAPI(new Request('https://apex.example/api/statistics'),{DB},null,'hosted')).json();
+ const env={DB,APEX_CASHIER_ADMIN_IDS:'cashier'};
+ const read=(path,user)=>handleAPI(new Request('https://apex.example/api/'+path),env,user,'hosted');
+ const schedule=await (await read('launch',null)).json();
+ assert.ok(schedule.launchAt-schedule.now>=12*3600-5&&schedule.launchAt-schedule.now<=12*3600);
+ assert.equal((await (await read('launch','investor')).json()).launchAt,schedule.launchAt);
+ assert.equal((await read('statistics',null)).status,403);
+ assert.equal((await read('statistics','investor')).status,403);
+ assert.equal((await read('statistics','cashier')).status,200);
+});
+test('cashier statistics count only activated receipts and paid withdrawals and omit identities',async()=>{
+ const DB=localDB(':memory:');
+ const read=async()=> (await handleAPI(new Request('https://apex.example/api/statistics'),{DB,APEX_CASHIER_ADMIN_IDS:'admin'},'admin','hosted')).json();
  assert.deepEqual([(await read()).invested,(await read()).paid],[356651250000,324849650000]);
  for(const [id,stage] of [['one','active'],['two','review'],['three','refunded']]){
   await DB.prepare('INSERT INTO receipts(id,user_id,payout,amount,referrer,receiver,factory,vault,created,stage) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(id,'secret-user','secret-payout',100000000,'ref',id,'factory','vault',100,stage).run();
