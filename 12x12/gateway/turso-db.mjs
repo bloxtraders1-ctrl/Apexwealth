@@ -1,5 +1,6 @@
 import {readdir,readFile} from 'node:fs/promises';
 import {createClient} from '@libsql/client';
+import {reconcileTursoSchema,SchemaMismatch} from './turso-reconcile.mjs';
 
 const migrations = new URL('../drizzle/', import.meta.url);
 const errorCode=error=>typeof error.code==='string'&&/^[A-Z0-9_]+$/.test(error.code)?' ('+error.code+')':'';
@@ -11,19 +12,24 @@ class TursoMigrationError extends Error {}
 
 export async function prepareTursoDatabase(client) {
  const files=(await readdir(migrations)).filter(file=>/^\d+_.*\.sql$/.test(file)).sort();
- const {rows}=await client.execute(
-  "SELECT name FROM sqlite_schema WHERE type='table' AND name IN ('receipts','turso_migrations')"
- );
- const tables=new Set(rows.map(({name})=>name));
- if(tables.has('receipts')&&!tables.has('turso_migrations')){
-  throw new Error('This database already contains 12x12 data. Use a database with a 12x12 migration history or migrate the existing database first.');
- }
  await client.execute('CREATE TABLE IF NOT EXISTS turso_migrations (name TEXT PRIMARY KEY)');
  const applied=new Set((await client.execute('SELECT name FROM turso_migrations')).rows.map(({name})=>name));
+ if(files.every(file=>applied.has(file)))return adapter(client);
+ const migrationsByFile=new Map(await Promise.all(files.map(async file=>{
+  const sql=await readFile(new URL(file,migrations),'utf8');
+  return [file,sql.split('--> statement-breakpoint').map(statement=>statement.trim()).filter(Boolean)];
+ })));
+ if(!applied.has(files[0])){
+  try{
+   if(await reconcileTursoSchema(client,migrationsByFile))return adapter(client);
+  }catch(error){
+   const detail=error instanceof SchemaMismatch?': '+error.message:errorCode(error)+schemaDetail(error);
+   throw new TursoMigrationError('Turso schema reconciliation failed'+detail+'.');
+  }
+ }
  for(const file of files){
   if(applied.has(file))continue;
-  const sql=await readFile(new URL(file,migrations),'utf8');
-  const statements=sql.split('--> statement-breakpoint').map(statement=>statement.trim()).filter(Boolean);
+  const statements=migrationsByFile.get(file);
   let transaction;
   let step='opening the write transaction';
   try{
@@ -47,6 +53,10 @@ export async function prepareTursoDatabase(client) {
    transaction?.close();
   }
  }
+ return adapter(client);
+}
+
+function adapter(client){
  return {
   prepare(sql){
    return {
@@ -76,7 +86,7 @@ export async function openTurso(url,authToken) {
  }catch(error){
   client.close();
   // Keep connection details and tokens out of startup logs.
-  if(error instanceof TursoMigrationError||error.message.startsWith('This database already contains 12x12 data'))throw error;
+  if(error instanceof TursoMigrationError)throw error;
   throw new Error('Could not connect to or inspect the Turso database'+errorCode(error)+'.');
  }
 }
