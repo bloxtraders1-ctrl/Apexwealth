@@ -10,6 +10,7 @@
 .support-close{background:#213955;color:#ecf5ff;border:1px solid #43617d;border-radius:7px;width:36px;height:36px;font-size:1.3rem}
 .support-dialog-body{overflow:auto;min-height:0;padding:14px 17px;overscroll-behavior:contain}
 .support-dialog-body h2{margin:.4rem 0 .65rem;font-size:1rem}
+.support-live-chat{padding-bottom:.85rem;margin-bottom:.85rem;border-bottom:1px solid #2e465e}
 .support-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin:.65rem 0}
 .support-actions:empty{display:none}
 .support-dialog-body .primary,.support-dialog-body .muted-button{min-height:36px}

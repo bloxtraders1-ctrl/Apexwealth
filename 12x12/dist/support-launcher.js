@@ -23,23 +23,78 @@ const body=element('div',null,'support-dialog-body');
 dialog.append(header,body);
 document.body.append(control,dialog);
 let revision=0;
+let widgetReady;
+const widget={organization:'a12x12',appId:'b1c8fb61-d743-41ae-b821-8b9cecbeed00'};
+function loadWidget(){
+ return widgetReady??=new Promise((resolve,reject)=>{
+  window.helpcrunchSettings={...widget,showWidget:false};
+  function queue(){queue.q.push(arguments);}
+  queue.q=[];
+  window.HelpCrunch=queue;
+  const script=element('script');
+  script.async=true;
+  script.src='https://embed.helpcrunch.com/sdk.js';
+  const timeout=setTimeout(fail,12000);
+  function fail(){
+   clearTimeout(timeout);
+   script.remove();
+   if(window.HelpCrunch===queue)delete window.HelpCrunch;
+   reject(new Error('Live chat is unavailable right now. You can still open a support ticket.'));
+  }
+  script.addEventListener('error',fail,{once:true});
+  queue('onReady',()=>{
+   clearTimeout(timeout);
+   script.removeEventListener('error',fail);
+   resolve();
+  });
+  document.head.append(script);
+ }).catch(error=>{
+  widgetReady=undefined;
+  throw error;
+ });
+}
+
+function offerLiveChat(panel,current){
+ const feedback=element('p',null,'wallet-feedback');
+ feedback.setAttribute('role','status');
+ const chat=button('Start live chat',async()=>{
+  chat.disabled=true;
+  feedback.textContent='Opening live chat…';
+  try{
+   await loadWidget();
+   if(current===revision&&dialog.open){
+    dialog.close();
+    window.HelpCrunch('openChat');
+   }
+  }catch(error){feedback.textContent=error.message;}
+  finally{chat.disabled=false;}
+ },'primary');
+ panel.append(chat,feedback);
+ panel.hidden=false;
+}
+
 async function open(){
  if(dialog.open)return;
  const current=++revision;
- body.replaceChildren(element('p','Loading support…','secondary'));
+ const panel=element('section');
+ panel.append(element('p','Loading support tickets…','secondary'));
+ const live=element('section',null,'support-live-chat');
+ live.hidden=true;
+ body.replaceChildren(live,panel);
  dialog.showModal();
+ if(['index','plan','referrals','faq','how-it-works'].includes(document.body.dataset.page)){
+  offerLiveChat(live,current);
+ }
  try{
   const [status,{mountSupport}]=await Promise.all([api('status'),import('./support-ui.js')]);
   if(current!==revision)return;
   if(!status.signedIn){
-   body.replaceChildren(element('p','Log in to open a ticket or read replies.','secondary'),
+   panel.replaceChildren(element('p','Log in to open a ticket or read replies.','secondary'),
     link('/login?next='+encodeURIComponent('/?support=open'),'Log in','primary'));
    return;
   }
-  const panel=element('section');
-  body.replaceChildren(panel);
   await mountSupport(panel);
- }catch(error){if(current===revision)body.replaceChildren(element('p',error.message,'wallet-feedback'));}
+ }catch(error){if(current===revision)panel.replaceChildren(element('p',error.message,'wallet-feedback'));}
 }
 dialog.addEventListener('close',()=>{
  revision++;
