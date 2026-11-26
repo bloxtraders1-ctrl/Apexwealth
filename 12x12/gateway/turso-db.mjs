@@ -3,6 +3,10 @@ import {createClient} from '@libsql/client';
 
 const migrations = new URL('../drizzle/', import.meta.url);
 const errorCode=error=>typeof error.code==='string'&&/^[A-Z0-9_]+$/.test(error.code)?' ('+error.code+')':'';
+const schemaDetail=error=>{
+ const diagnostic=String(error.message).match(/\b(?:no such (?:table|index|trigger|column|function|view): [a-z_][a-z0-9_.]*|(?:table|index|trigger|view) [a-z_][a-z0-9_.]* already exists|duplicate column name: [a-z_][a-z0-9_.]*|near "[a-z_][a-z0-9_]*": syntax error)\b/i);
+ return diagnostic?': '+diagnostic[0]:'';
+};
 class TursoMigrationError extends Error {}
 
 export async function prepareTursoDatabase(client) {
@@ -19,6 +23,7 @@ export async function prepareTursoDatabase(client) {
  for(const file of files){
   if(applied.has(file))continue;
   const sql=await readFile(new URL(file,migrations),'utf8');
+  const statements=sql.split('--> statement-breakpoint').map(statement=>statement.trim()).filter(Boolean);
   let transaction;
   let step='opening the write transaction';
   try{
@@ -26,8 +31,10 @@ export async function prepareTursoDatabase(client) {
    step='checking migration history';
    const {rows:history}=await transaction.execute({sql:'SELECT 1 FROM turso_migrations WHERE name = ?',args:[file]});
    if(!history.length){
-    step='applying the schema changes';
-    await transaction.executeMultiple(sql);
+    for(const [index,statement] of statements.entries()){
+     step='applying statement '+(index+1)+' of '+statements.length;
+     await transaction.execute(statement);
+    }
     step='recording migration history';
     await transaction.execute({sql:'INSERT INTO turso_migrations (name) VALUES (?)',args:[file]});
    }
@@ -35,7 +42,7 @@ export async function prepareTursoDatabase(client) {
    await transaction.commit();
   }catch(error){
    if(transaction)await transaction.rollback().catch(()=>{});
-   throw new TursoMigrationError('Turso migration '+file+' failed while '+step+errorCode(error)+'.');
+   throw new TursoMigrationError('Turso migration '+file+' failed while '+step+errorCode(error)+schemaDetail(error)+'.');
   }finally{
    transaction?.close();
   }
