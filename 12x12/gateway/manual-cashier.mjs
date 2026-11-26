@@ -5,10 +5,12 @@ import {check} from './chain.mjs';
 
 const defaults={min_deposit:1200,max_deposit:250000,min_withdraw:1,max_withdraw:250000,withdrawal_fee:0,confirmations:6};
 const transitions={
- approve:['deposit','pending','approved'], rejectDeposit:['deposit','pending','rejected'],
+ approve:['deposit','pending','approved'], approveManualDeposit:['deposit','pending','approved'],
+ rejectDeposit:['deposit','pending','rejected'],
  process:['withdrawal','pending','processing'], broadcast:['withdrawal','processing','broadcasting'],
  approveWithdrawal:['withdrawal','pending','broadcasting'],
  sent:['withdrawal','broadcasting','sent'], complete:['withdrawal','sent','completed'],
+ completeManualWithdrawal:['withdrawal','broadcasting','completed'],
  rejectWithdrawal:['withdrawal','pending','rejected']
 };
 const json=(body,status=200)=>Response.json(body,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
@@ -332,14 +334,28 @@ export async function manualCashier(req,env,user,{price=spotPrice,clock=()=>Math
    check(row.kind===kind,'This action does not apply to the request.',409);
    const depositReview=kind==='deposit';
    if(depositReview&&row.status===to)return depositDecision(row);
-   const note=reviewNote(body.note);
+   const note=action==='approveManualDeposit'?'Cashier confirmed receipt of the quoted amount.':
+    action==='completeManualWithdrawal'?'Cashier recorded the payout sent.':reviewNote(body.note);
    let tx=row.tx,index=row.transfer_index,evidence=null,confirmations=row.confirmations,credit=row.credit;
    if(action==='sent'){
     tx=normalizeTx(row.network,body.tx);
     index=transferIndex(row,body.index);
    }
-   const expected=(action==='rejectWithdrawal'||action==='approveWithdrawal')&&row.status==='processing'?'processing':from;
+   const expected=(action==='rejectWithdrawal'||action==='approveWithdrawal')&&row.status==='processing'?'processing':
+    action==='completeManualWithdrawal'&&row.status==='sent'?'sent':from;
    check(row.status===expected||row.status===to,'This request has already moved to another status.',409);
+   if(action==='approveManualDeposit'){
+    evidence={verification:'cashier',decision:'received'};
+    index=null;
+    confirmations=null;
+    credit=row.amount;
+   }
+   if(action==='completeManualWithdrawal'){
+    if(row.status==='broadcasting'||body.tx!==undefined)tx=normalizeTx(row.network,body.tx);
+    check(tx&&(!row.tx||row.tx===tx),'The payout transaction ID differs from the one already recorded.',409);
+    evidence={verification:'cashier',decision:'sent'};
+    confirmations=null;
+   }
    if(action==='approve'){
     evidence=verifyEvidence(body,row,now);
     check(body.ownershipVerified===true,'Confirm that the depositor sent this transfer.');

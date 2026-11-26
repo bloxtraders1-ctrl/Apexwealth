@@ -175,7 +175,7 @@ function reviewQuote(content,quote){
  form.append(makeDetails([['Network',assetLabel(option)],['Crypto '+(deposit?'to send':'to receive'),quote.crypto+' '+option.symbol],
   ['USD amount',cents(quote.amount)],['Fee',cents(quote.fee)],['USD '+(deposit?'credit':'deduction'),cents(quote.amount+quote.fee)],
   [quote.rate_source+' rate',quote.rate+' USD / '+option.symbol],['Quote expires',when(quote.expires)],
-  ['Required confirmations',quote.minimum_confirmations||'Set by the cashier'],[deposit?'Receiving address':'Your destination',element('code',quote.address)],
+  [deposit?'Receiving address':'Your destination',element('code',quote.address)],
   ...(option.token?[['Token contract',element('code',option.token)]]:[])]));
  if(deposit){
   const copy=button('Copy receiving address',async()=>{

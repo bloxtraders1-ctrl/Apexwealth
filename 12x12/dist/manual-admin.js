@@ -55,24 +55,23 @@ function auditDetails(id){
  return details;
 }
 
-function depositActions(row,option,controls,article,onReviewed){
- const forms=element('div');
- for(const [action,label] of [['approve','Approve'],['rejectDeposit','Reject']]){
-  const form=actionForm(row,option,action,action==='approve'?'Credit verified deposit':'Reject deposit',result=>{
-   forms.remove();
-   onReviewed({...row,...result});
-  }).querySelector('form');
-  form.hidden=true;
-  const toggle=button(label,()=>{
-   const wasHidden=form.hidden;
-   for(const sibling of forms.children)sibling.hidden=true;
-   form.hidden=!wasHidden;
-   if(wasHidden)form.querySelector('input,textarea')?.focus();
-  },action==='approve'?'primary':undefined);
-  controls.append(toggle);
-  forms.append(form);
+function reviewButtons(row,controls,article,actions,onReviewed){
+ const feedback=notice();
+ const buttons=[];
+ for(const [action,label,note] of actions){
+  buttons.push(button(label,async()=>{
+   for(const control of buttons)control.disabled=true;
+   feedback.textContent='';
+   try{
+    const result=await cashier('admin/review',{id:row.id,action,note});
+    await onReviewed(result);
+   }catch(error){feedback.textContent=error.message;}
+   finally{for(const control of buttons)control.disabled=false;}
+  },buttons.length===0?'primary':undefined));
  }
- article.append(forms);
+ controls.append(...buttons);
+ article.append(feedback);
+ return feedback;
 }
 
 function fillRequestDetails(details,row,option,kind,openUser){
@@ -82,60 +81,25 @@ function fillRequestDetails(details,row,option,kind,openUser){
    ['USD '+(kind==='deposit'?'credit':'deduction'),cents(row.amount+row.fee)],
    [row.rate_source+' rate',row.rate+' USD / '+option.symbol],['Address',element('code',row.address)],
    ['Token contract',option.token||'Native asset'],['Transaction',transactionLink(option,row.tx)],
-   ...(kind==='deposit'&&row.status==='approved'&&row.transfer_index==null
+   ...(['approved','completed'].includes(row.status)&&row.confirmations==null
     ?[['Approval method','Manual cashier decision']]
-    :[['Transfer index',row.transfer_index],['Confirmations',(row.confirmations??'—')+' / '+row.required_confirmations]]),
+    :[['Transfer index',row.transfer_index],['Confirmations',row.confirmations]]),
    ['Quote expires',when(row.expires)],['Submitted',when(row.created)],['Updated',when(row.updated)],['Review notes',row.note]]),
   button('View user',openUser),auditDetails(row.id));
 }
 
-function actionForm(row,option,action,label,after){
- const box=element('details',null,'manual-action');
- box.append(element('summary',label));
+function payoutForm(row,option,after){
  const form=element('form',null,'manual-form');
- const approving=['approve','complete','approveWithdrawal','sent'].includes(action);
- const note=field(form,approving?'Review note (optional)':'Reason or review note',{tag:'textarea',minLength:5,maxLength:1000,required:!approving});
- const payload=()=>({id:row.id,action,note:note.value||'Manually checked against request details'});
- const getters=[];
- const include=(key,label,attributes,transform=x=>x.value)=>{
-  const control=field(form,label,attributes);
-  getters.push(data=>data[key]=transform(control));
- };
- const native=(['ethereum','base','bsc','tron','xrpl'].includes(option.network)&&!option.token);
- if(action==='sent')include('tx','Payout transaction hash or signature',{required:true,maxLength:120,spellcheck:false});
- if(!native&&['approve','sent'].includes(action)){
-  include('index','Transfer, log or output index',{type:'number',min:0,max:100000000,step:1,required:true},x=>Number(x.value));
-  if(option.network==='solana')form.append(element('p','Solana index: outer instruction × 10,000. For an inner transfer, add its zero-based inner index plus 1.','secondary'));
- }
- if(action==='approve'||action==='complete'){
-  const tx=transactionLink(option,row.tx);
-  form.append(element('p','Open the transaction and enter the details you observe on the explorer.','secondary'));
-  if(tx instanceof Node)form.append(tx);
-  if(option.network==='xrpl')form.append(element('p','Check for a validated, successful XRP Payment and use the amount actually delivered to the destination.','secondary'));
-  include('network','Observed network',{required:true,placeholder:option.network,spellcheck:false},x=>x.value.trim().toLowerCase());
-  include('address','Observed receiving address',{required:true,spellcheck:false});
-  if(option.token)include('token','Observed token contract',{required:true,spellcheck:false});
-  include('crypto','Observed crypto amount',{required:true,inputMode:'decimal',spellcheck:false});
-  include('confirmations','Confirmations',{required:true,type:'number',min:row.required_confirmations},x=>Number(x.value));
-  include('paidAt','Block time (your local time)',{type:'datetime-local',step:1,required:true},x=>Math.floor(new Date(x.value).getTime()/1000));
-  include('success','I checked that this transfer succeeded on the blockchain.',{type:'checkbox',required:true},x=>x.checked);
-  if(action==='approve')include('ownershipVerified','I confirmed this depositor made the transfer.',{type:'checkbox',required:true},x=>x.checked);
- }
- if(action==='approveWithdrawal')form.append(element('p','Approve to reserve this payout for sending from your wallet. Rejection is unavailable after approval.','secondary'));
- if(action==='sent')form.append(element('p','Enter the hash for the payout already sent from your wallet.','secondary'));
- const submit=submitButton(form,label), feedback=notice();form.append(feedback);
+ form.append(makeDetails([['Coin and network',assetLabel(option)],['Amount to send',row.crypto+' '+option.symbol],
+  ['Destination',element('code',row.address)]]));
+ form.append(element('p','Check your wallet history before sending. If you already sent this payout, use its existing transaction ID.','secondary'));
+ const tx=field(form,'Payout transaction ID',{required:true,maxLength:120,spellcheck:false});
+ const submit=submitButton(form,'Approve'), feedback=notice();form.append(feedback);
  bindForm(form,submit,feedback,async()=>{
-  const data=payload();for(const get of getters)get(data);
-  const result=await cashier('admin/review',data);
-  if(action==='approveWithdrawal'){
-   if(result.alreadyLocked){feedback.textContent='Already locked. Check the audit trail and wallet before recording a payout.';return;}
-   submit.disabled=true;box.querySelector('form').replaceChildren(element('p','Approved. Send the payout from your wallet once. Then reopen Approve to record its transaction hash. If sending was interrupted, check your wallet before trying again.','secondary'),button('Back to withdrawals',after));
-   return;
-  }
-  await after(result);
+  await cashier('admin/review',{id:row.id,action:'completeManualWithdrawal',tx:tx.value.trim()});
+  await after();
  });
- box.append(form);
- return box;
+ return form;
 }
 
 async function queue(content,kind,scope,last,criteria={}){
@@ -181,7 +145,11 @@ async function queue(content,kind,scope,last,criteria={}){
     if(focus)decision.focus();
    };
    if(row.status==='pending'){
-    depositActions(row,option,controls,article,resolved=>{
+    const feedback=reviewButtons(row,controls,article,[
+     ['approveManualDeposit','Approve'],['rejectDeposit','Reject','Deposit rejected by cashier.']
+    ],result=>{
+     const resolved={...row,...result};
+     feedback.remove();
      showDecision(resolved.status,true);
      fillRequestDetails(details,resolved,option,kind,openUser);
     });
@@ -189,10 +157,13 @@ async function queue(content,kind,scope,last,criteria={}){
   }else{
    controls.append(element('span',statusLabel(row.status),'cashier-request-status'));
    if(['pending','processing'].includes(row.status)){
-    article.append(actionForm(row,option,'approveWithdrawal','Approve',reload),actionForm(row,option,'rejectWithdrawal','Reject',reload));
+    reviewButtons(row,controls,article,[
+     ['approveWithdrawal','Start payout','Cashier started the payout.'],
+     ['rejectWithdrawal','Reject','Withdrawal rejected by cashier.']
+    ],reload);
    }
-   if(row.status==='broadcasting')article.append(actionForm(row,option,'sent','Approve',reload));
-   if(row.status==='sent')article.append(actionForm(row,option,'complete','Approve',reload));
+   if(row.status==='broadcasting')article.append(payoutForm(row,option,reload));
+   if(row.status==='sent')reviewButtons(row,controls,article,[['completeManualWithdrawal','Approve']],reload);
   }
   fillRequestDetails(details,row,option,kind,openUser);
   article.append(details);
@@ -336,10 +307,9 @@ async function showSettings(content){
   for(const [key,label] of [['min_deposit','Minimum deposit'],['max_deposit','Maximum deposit'],['min_withdraw','Minimum withdrawal'],['max_withdraw','Maximum withdrawal'],['withdrawal_fee','Flat withdrawal fee']]){
    numeric[key]=field(form,label+' (USD)',{type:'number',min:key==='withdrawal_fee'?0:.01,max:1000000,step:.01,value:(option[key]/100).toFixed(2),required:true});
   }
-  const confirmations=field(form,'Required confirmations',{type:'number',min:1,max:100000,value:option.confirmations,required:true});
   const submit=submitButton(form,'Save '+option.symbol+' settings'),feedback=notice();form.append(feedback);
   bindForm(form,submit,feedback,async()=>{
-   const body={asset:option.key,address:address.value,enabled:enabled.checked,confirmations:Number(confirmations.value)};
+   const body={asset:option.key,address:address.value,enabled:enabled.checked,confirmations:option.confirmations};
    for(const [key,input] of Object.entries(numeric))body[key]=Math.round(Number(input.value)*100);
    await cashier('admin/options',body);
    ({options}=await cashier('admin/options'));

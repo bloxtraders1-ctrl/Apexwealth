@@ -11,14 +11,14 @@ const hash=byte=>'0x'+byte.repeat(64);
 function setup(){
  const DB=localDB(':memory:'),env={DB,APEX_CASHIER_ADMIN_IDS:admin};
  let now=1_795_500_000;
- let interrupted=false;
+ let interrupted;
  env.DB={prepare(statement){
   const st=DB.prepare(statement);
   return {bind(...args){
    const bound=st.bind(...args);
    return {...bound,run(){
     const result=bound.run();
-    if(interrupted&&statement.includes('INSERT INTO manual_payments')){interrupted=false;throw Error('Injected lost write response');}
+    if(interrupted&&statement.includes(interrupted)){interrupted=undefined;throw Error('Injected lost write response');}
     return result;
    }};
   }};
@@ -49,7 +49,8 @@ function setup(){
  };
  const review=(id,action,fields={})=>call('admin/review',{id,action,note:'Recorded cashier review',...fields},admin);
  const events=()=>raw('SELECT event, COUNT(*) AS n FROM manual_ledger GROUP BY event ORDER BY event').all().results;
- return {call,configure,quote,deposit,approve,fundBasis,review,events,raw,attest,loseResponse:()=>{interrupted=true;},tick:seconds=>now+=seconds};
+ return {call,configure,quote,deposit,approve,fundBasis,review,events,raw,attest,
+  loseResponse:(statement='INSERT INTO manual_payments')=>{interrupted=statement;},tick:seconds=>now+=seconds};
 }
 
 test('manual deposit approval requires transfer evidence and credits exactly once',async()=>{
@@ -135,6 +136,65 @@ test('receiving addresses import atomically with admin permissions and preserve 
   assert.equal((await t.approve(q,{confirmations:6,index:undefined})).transfer_index,-1);
  }
  assert.equal((await t.call('wallet')).balance,2400);
+});
+
+test('one-click cashier decisions record a single deposit credit without confirmation evidence',async()=>{
+ const t=setup();await t.configure();
+ const q=await t.deposit();
+ const request={id:q.id,action:'approveManualDeposit'};
+ assert.equal((await t.call('admin/review',request,other)).code,403);
+ assert.throws(()=>t.raw("UPDATE manual_payments SET status='approved',credit=amount WHERE id=?",q.id).run(),/manual approval evidence required/);
+ t.loseResponse('UPDATE manual_payments SET status=');
+ assert.equal((await t.call('admin/review',request,admin)).code,503);
+ const approved=await t.call('admin/review',request,admin);
+ assert.equal(approved.status,'approved');
+ assert.equal(approved.confirmations,null);
+ assert.equal(approved.transfer_index,null);
+ assert.deepEqual(await t.call('admin/review',request,admin),approved);
+ assert.equal((await t.review(q.id,'rejectDeposit')).code,409);
+ assert.equal((await t.call('wallet')).balance,10000);
+ const audit=(await t.call('admin/audit?id='+q.id,null,admin)).rows;
+ assert.deepEqual(JSON.parse(audit.at(-1).detail).evidence,{verification:'cashier',decision:'received'});
+ const repeat=await t.deposit('200',hash('1'),other);
+ assert.equal((await t.review(repeat.id,'approveManualDeposit')).code,409);
+ assert.equal((await t.approve(repeat,{index:7})).code,409);
+ assert.equal((await t.call('wallet',null,other)).balance,0);
+ const pending=await t.deposit('100',hash('5'));
+ const results=await Promise.all([t.review(pending.id,'approveManualDeposit'),t.review(pending.id,'rejectDeposit')]);
+ assert.deepEqual(results.map(result=>result.code).sort(),[200,409]);
+});
+
+test('cashier records an external payout using only its ID and cannot approve or refund it twice',async()=>{
+ const t=setup();await t.configure();t.fundBasis();
+ await t.review((await t.deposit()).id,'approveManualDeposit');
+ const q=await t.quote('withdrawal','5');
+ await t.call('submit',{id:q.id});
+ const request={id:q.id,action:'completeManualWithdrawal',tx:hash('2')};
+ const complete=()=>t.call('admin/review',request,admin);
+ assert.equal((await complete()).code,409);
+ assert.equal((await t.review(q.id,'approveWithdrawal')).status,'broadcasting');
+ assert.equal((await t.review(q.id,'completeManualWithdrawal')).code,400);
+ assert.equal((await t.review(q.id,'completeManualWithdrawal',{tx:hash('1')})).code,409);
+ assert.throws(()=>t.raw("UPDATE manual_payments SET status='completed',tx=?,transfer_index=1,confirmations=8 WHERE id=?",hash('2'),q.id).run(),
+  /manual invalid transition/);
+ assert.equal((await t.call('cancel',{id:q.id})).code,409);
+ assert.equal((await t.review(q.id,'rejectWithdrawal')).code,409);
+ t.loseResponse('UPDATE manual_payments SET status=');
+ assert.equal((await complete()).code,503);
+ assert.equal((await complete()).status,'completed');
+ assert.equal((await t.review(q.id,'completeManualWithdrawal',{tx:hash('3')})).code,409);
+ const audit=(await t.call('admin/audit?id='+q.id,null,admin)).rows;
+ assert.deepEqual(audit.map(row=>row.event),['submitted','broadcasting','completed']);
+ assert.deepEqual(JSON.parse(audit.at(-1).detail).evidence,{verification:'cashier',decision:'sent'});
+ assert.equal((await t.call('wallet')).balance,9475);
+ const second=await t.quote('withdrawal','5');
+ await t.call('submit',{id:second.id});
+ await t.review(second.id,'approveWithdrawal');
+ assert.equal((await t.review(second.id,'completeManualWithdrawal',{tx:hash('2')})).code,409);
+ await t.review(second.id,'sent',{tx:hash('3'),index:5});
+ assert.equal((await t.review(second.id,'completeManualWithdrawal')).status,'completed');
+ assert.equal((await t.review(second.id,'rejectWithdrawal')).code,409);
+ assert.deepEqual(t.events().map(row=>[row.event,row.n]),[['credit',1],['payout',2],['reserve',2]]);
 });
 
 test('indexed transfers are unique and historical approvals protect the whole hash',async()=>{
