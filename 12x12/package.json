@@ -23,6 +23,7 @@
     "node": ">=22.13.0"
   },
   "dependencies": {
+    "@libsql/client": "0.18.0",
     "ethers": "6.17.0"
   }
 }

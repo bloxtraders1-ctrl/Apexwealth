@@ -105,6 +105,38 @@ test('manual deposit approval requires transfer evidence and credits exactly onc
  assert.throws(()=>t.raw('DELETE FROM manual_audit').run(),/immutable audit/);
 });
 
+test('receiving addresses import atomically with admin permissions and preserve configured limits',async()=>{
+ const t=setup();await t.configure();
+ const xrp='rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh';
+ const addresses={'usdc-ethereum':destination,'bnb-bsc':address,xrp};
+ const importAddresses=(values,user=admin,origin)=>t.call('admin/receiving-addresses',{addresses:values},user,origin);
+ assert.equal((await importAddresses(addresses,investor)).code,403);
+ assert.equal((await importAddresses(addresses,admin,'https://other.example')).code,403);
+ assert.equal((await importAddresses({...addresses,xrp:xrp.slice(0,-1)+'r'})).code,400);
+ assert.equal(t.raw('SELECT COUNT(*) AS n FROM manual_options').first().n,1);
+ assert.equal(t.raw('SELECT address FROM manual_options WHERE id=?','usdc-ethereum').first().address,address);
+ const original=await t.quote();
+ assert.equal(original.code,200);
+ assert.deepEqual(await importAddresses(addresses),{code:200,active:3,updated:3});
+ assert.deepEqual(await importAddresses(addresses),{code:200,active:3,updated:0});
+ assert.equal(t.raw('SELECT address FROM manual_quotes WHERE id=?',original.id).first().address,address);
+ const settings=(await t.call('admin/options',null,admin)).options;
+ assert.equal(settings.find(x=>x.key==='usdc-ethereum').withdrawal_fee,25);
+ assert.equal(settings.find(x=>x.key==='usdc-ethereum').address,destination);
+ assert.equal(settings.find(x=>x.key==='bnb-bsc').network,'bsc');
+ assert.equal(settings.find(x=>x.key==='xrp').withdrawal_enabled,false);
+ const xrpQuote=await t.call('quote',{asset:'xrp',kind:'deposit',amount:'12'});
+ assert.equal(xrpQuote.address,xrp);
+ assert.equal((await t.call('quote',{asset:'xrp',kind:'withdrawal',amount:'12',address:xrp})).code,409);
+ const bnbQuote=await t.call('quote',{asset:'bnb-bsc',kind:'deposit',amount:'12'});
+ assert.equal(bnbQuote.address,address);
+ for(const [q,tx] of [[xrpQuote,'ab'.repeat(32)],[bnbQuote,hash('b')]]){
+  assert.equal((await t.call('submit',{id:q.id,tx})).code,200);
+  assert.equal((await t.approve(q,{confirmations:6,index:undefined})).transfer_index,-1);
+ }
+ assert.equal((await t.call('wallet')).balance,2400);
+});
+
 test('indexed transfers are unique and historical approvals protect the whole hash',async()=>{
  const t=setup();await t.configure();t.fundBasis();
  const first=await t.deposit();

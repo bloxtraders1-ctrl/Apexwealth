@@ -8,8 +8,12 @@ import {handleAPI} from '../gateway/api.mjs';
 import {assetPath,mime,walletRedirect} from '../gateway/paths.mjs';
 import {runtimeConfig} from '../gateway/runtime-config.mjs';
 import {localDB} from '../gateway/local-db.mjs';
+import {openTurso} from '../gateway/turso-db.mjs';
 const flag=name=>process.argv.includes(name)?process.argv[process.argv.indexOf(name)+1]:undefined;
-const root=path.resolve('dist'),DB=localDB(process.env.APEX_DB_PATH||'.cashier/accounts.sqlite');
+const root=path.resolve('dist');
+const remote=process.env.TURSO_DATABASE_URL||process.env.TURSO_AUTH_TOKEN;
+const DB=remote?await openTurso(process.env.TURSO_DATABASE_URL,process.env.TURSO_AUTH_TOKEN):
+ localDB(process.env.APEX_DB_PATH||'.cashier/accounts.sqlite');
 const settings=runtimeConfig(process.env.APEX_CONFIG_JSON);
 const env={DB,settings,BASE_RPC_URL:process.env.BASE_RPC_URL,accountEnvironment:"selfhost",APEX_CASHIER_ADMIN_IDS:process.env.APEX_CASHIER_ADMIN_IDS};
 const port=Number(flag('--port')||process.env.PORT||3000);

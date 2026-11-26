@@ -1,6 +1,6 @@
 import {walletAccounts} from './wallet-accounts.mjs';
 import {supportTickets} from './support.mjs';
-import {assets,normalizeAddress,normalizeTx,parseDecimal,formatDecimal,spotPrice} from './manual-assets.mjs';
+import {assets,normalizeAddress,normalizeTx,parseDecimal,formatDecimal,spotPrice,supportsWithdrawal} from './manual-assets.mjs';
 import {check} from './chain.mjs';
 
 const defaults={min_deposit:1200,max_deposit:250000,min_withdraw:1,max_withdraw:250000,withdrawal_fee:0,confirmations:6};
@@ -68,8 +68,8 @@ function depositDecision({id,status,updated,note,confirmations,transfer_index}){
 }
 function transferIndex(row,value){
  const [,network,,token]=assets[row.asset];
- // Native EVM and TRX use one top-level transfer per transaction; token transfers use log indexes.
- if((network==='ethereum'||network==='base'||network==='tron')&&!token)return -1;
+ // Review native EVM, TRX and XRP payments by transaction ID.
+ if(['ethereum','base','bsc','tron','xrpl'].includes(network)&&!token)return -1;
  return integer(value,0,100_000_000,'transfer/output index');
 }
 
@@ -112,7 +112,7 @@ export async function manualCashier(req,env,user,{price=spotPrice,clock=()=>Math
     const options=Object.entries(assets).map(([key,asset])=>{
      const {address,actor,updated,...config}=rows.find(row=>row.id===key)||{...defaults,enabled:0,address:''};
      const enabled=Boolean(config.enabled&&address);
-     const option={...publicAsset(key,asset),...config,enabled,deposit_enabled:enabled};
+     const option={...publicAsset(key,asset),...config,enabled,deposit_enabled:enabled,withdrawal_enabled:enabled&&supportsWithdrawal(asset[1])};
      return admin&&route==='admin/options'?{...option,address}:option;
     });
     const {daily_bps}=await read('SELECT daily_bps FROM manual_policy WHERE id=1');
@@ -209,6 +209,25 @@ export async function manualCashier(req,env,user,{price=spotPrice,clock=()=>Math
   if(route==='profile')return json(await wallet.rename(body.name));
   if(route==='invest')return json(await wallet.invest(body));
   if(route==='admin/reward-reserve')return json(await wallet.fund(body));
+  if(route==='admin/receiving-addresses'){
+   const {addresses}=body;
+   check(addresses&&typeof addresses==='object'&&!Array.isArray(addresses),'Choose a receiving-address file.');
+   const entries=Object.entries(addresses);
+   check(entries.length>0&&entries.length<=Object.keys(assets).length,'Choose a file with supported payment options.');
+   const verified=entries.map(([asset,address])=>{
+    check(Object.hasOwn(assets,asset),'Unsupported payment asset in the receiving-address file.');
+    return {asset,address:normalizeAddress(assets[asset][1],address)};
+   });
+   const {meta}=await run(`INSERT INTO manual_options
+    (id,address,enabled,min_deposit,max_deposit,min_withdraw,max_withdraw,withdrawal_fee,confirmations,actor,updated)
+    SELECT json_extract(value,'$.asset'),json_extract(value,'$.address'),1,?,?,?,?,?,?,?,?
+    FROM json_each(?) WHERE 1
+    ON CONFLICT(id) DO UPDATE SET address=excluded.address,enabled=1,actor=excluded.actor,updated=excluded.updated
+    WHERE manual_options.address<>excluded.address OR manual_options.enabled<>1`,
+    defaults.min_deposit,defaults.max_deposit,defaults.min_withdraw,defaults.max_withdraw,
+    defaults.withdrawal_fee,defaults.confirmations,user,now,JSON.stringify(verified));
+   return json({active:verified.length,updated:meta.changes});
+  }
   if(route==='admin/options'){
    const {asset}=body;
    check(Object.hasOwn(assets,asset),'Unsupported payment asset.');
@@ -249,10 +268,11 @@ export async function manualCashier(req,env,user,{price=spotPrice,clock=()=>Math
    const {asset,kind}=body;
    check(Object.hasOwn(assets,asset),'Unsupported payment asset.');
    check(kind==='deposit'||kind==='withdrawal','Choose a valid request type.');
-   const config=await read('SELECT * FROM manual_options WHERE id=? AND enabled=1',asset);
-   check(config?.address,'This payment option is unavailable.',409);
    const option=publicAsset(asset,assets[asset]);
    const deposit=kind==='deposit';
+   check(deposit||supportsWithdrawal(option.network),'This network supports deposits only.',409);
+   const config=await read('SELECT * FROM manual_options WHERE id=? AND enabled=1',asset);
+   check(config?.address,'This payment option is unavailable.',409);
    const amount=parseDecimal(body.amount,2,'USD amount');
    const [min,max]=deposit?[config.min_deposit,config.max_deposit]:[config.min_withdraw,config.max_withdraw];
    check(amount>=BigInt(min)&&amount<=BigInt(max),'Enter an amount within the advertised limits.');

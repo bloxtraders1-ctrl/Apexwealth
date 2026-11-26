@@ -4,7 +4,8 @@ export const cashier=(path,body)=>api('manual/'+path,body);
 const usd = new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'});
 export const cents=value=>usd.format(Number(value)/100);
 export const when=seconds=>new Date(seconds*1000).toLocaleString();
-export const assetLabel=option=>option.symbol+' · '+option.network;
+const networkLabels={bsc:'BNB Smart Chain',xrpl:'XRP Ledger'};
+export const assetLabel=option=>option.symbol+' · '+(networkLabels[option.network]||option.network);
 export const statusLabel=status=>({
  pending:'Awaiting review',approved:'Credited',processing:'In review',broadcasting:'Approved · awaiting payout hash',
  sent:'Sent · awaiting confirmation',completed:'Completed',rejected:'Rejected',cancelled:'Cancelled'

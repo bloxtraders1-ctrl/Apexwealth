@@ -74,7 +74,7 @@ function stepActions(form,label,handler,back){
 function showNetwork(content,kind){
  const form=startStep(content,kind,0,'Choose a coin and network');
  const draft=drafts[kind];
- const allowed=options.filter(item=>kind==='deposit'?item.deposit_enabled:item.enabled);
+ const allowed=options.filter(item=>kind==='deposit'?item.deposit_enabled:(item.withdrawal_enabled??item.enabled));
  if(!allowed.length){
   form.append(element('p','No payment networks are configured. Contact the cashier administrator.','secondary'));
   return;
@@ -130,7 +130,7 @@ function open(screen){
 function addTransactionField(form,network){
  const solana=network==='solana';
  const type=solana?'Transaction signature':'Transaction ID (TxID)';
- const example=solana?'5mK4…yP8Q':(['ethereum','base'].includes(network)?'0x7c9a…42d1':'7c9a…42d1');
+ const example=solana?'5mK4…yP8Q':(['ethereum','base','bsc'].includes(network)?'0x7c9a…42d1':'7c9a…42d1');
  const input=field(form,type,{required:true,maxLength:120,spellcheck:false,autocomplete:'off',
   placeholder:solana?'Paste the Solana signature':'Paste the transaction hash'});
 
@@ -186,6 +186,7 @@ function reviewQuote(content,quote){
   const addressTools=element('div',null,'wallet-address-tools');
   addressTools.append(canvas,copy);
   form.append(addressTools,element('p','Use the displayed network and quoted crypto amount. If the quote expires, get a new quote before sending. If you already sent crypto and it confirms outside the quote window, submit the original transaction ID and contact Support for reconciliation.','secondary'));
+  if(option.network==='xrpl')form.append(element('p','If your wallet or exchange requires a destination tag, contact Support before sending.','secondary'));
   import('./assets/receipt-qr.js').then(({toCanvas})=>toCanvas(canvas,quote.address,{width:144,margin:2})).catch(()=>{canvas.hidden=true;});
  }else form.append(element('p','Confirming reserves the USD deduction. The cashier sends the crypto after review.','secondary'));
  const tx=deposit?addTransactionField(form,option.network):null;

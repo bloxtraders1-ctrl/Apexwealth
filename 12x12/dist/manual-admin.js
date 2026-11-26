@@ -101,7 +101,7 @@ function actionForm(row,option,action,label,after){
   const control=field(form,label,attributes);
   getters.push(data=>data[key]=transform(control));
  };
- const native=(['ethereum','base','tron'].includes(option.network)&&!option.token);
+ const native=(['ethereum','base','bsc','tron','xrpl'].includes(option.network)&&!option.token);
  if(action==='sent')include('tx','Payout transaction hash or signature',{required:true,maxLength:120,spellcheck:false});
  if(!native&&['approve','sent'].includes(action)){
   include('index','Transfer, log or output index',{type:'number',min:0,max:100000000,step:1,required:true},x=>Number(x.value));
@@ -111,6 +111,7 @@ function actionForm(row,option,action,label,after){
   const tx=transactionLink(option,row.tx);
   form.append(element('p','Open the transaction and enter the details you observe on the explorer.','secondary'));
   if(tx instanceof Node)form.append(tx);
+  if(option.network==='xrpl')form.append(element('p','Check for a validated, successful XRP Payment and use the amount actually delivered to the destination.','secondary'));
   include('network','Observed network',{required:true,placeholder:option.network,spellcheck:false},x=>x.value.trim().toLowerCase());
   include('address','Observed receiving address',{required:true,spellcheck:false});
   if(option.token)include('token','Observed token contract',{required:true,spellcheck:false});
@@ -304,17 +305,38 @@ async function showSettings(content){
   paymentOptions.textContent=names.length?'Configured for deposits: '+names.join(', ')+'.':'No deposit network is configured. Save a receiving address and enable a network below.';
  };
  updatePaymentStatus();
- content.append(paymentOptions,reserveForm,policy,auditDetails('policy'));
+ const importForm=element('form',null,'manual-form panel');
+ importForm.append(element('h3','Import receiving addresses'),
+  element('p','This replaces the listed receiving addresses and enables them for new deposits. Existing quotes, limits and fees are preserved. XRP supports deposits only.','secondary'));
+ const file=field(importForm,'Receiving-address file',{type:'file',accept:'.json,application/json',required:true});
+ const importButton=submitButton(importForm,'Import and enable'), importFeedback=notice();
+ importForm.append(importFeedback);
+ bindForm(importForm,importButton,importFeedback,async()=>{
+  const selected=file.files[0];
+  if(!selected||selected.size>4096)throw Error('Choose a receiving-address JSON file under 4 KB.');
+  let addresses;
+  try{addresses=JSON.parse(await selected.text());}
+  catch{throw Error('Choose a valid receiving-address JSON file.');}
+  const {active}=await cashier('admin/receiving-addresses',{addresses});
+  file.value='';
+  try{
+   await showSettings(content);
+   content.querySelector('input[type=file]')?.closest('form')?.querySelector('[role=status]')?.replaceChildren(active+' receiving addresses enabled.');
+  }catch{
+   importFeedback.textContent=active+' receiving addresses enabled. Reload this page to see the updated settings.';
+  }
+ });
+ content.append(paymentOptions,importForm,reserveForm,policy,auditDetails('policy'));
  for(const option of options){
   const form=element('form',null,'manual-form panel manual-option');
   form.append(element('h3',assetLabel(option)));
   const address=field(form,'Receiving address',{value:option.address,maxLength:120,spellcheck:false});
-  const enabled=field(form,'Accept transfers',{type:'checkbox',checked:option.enabled});
+  const enabled=field(form,option.network==='xrpl'?'Accept deposits':'Accept transfers',{type:'checkbox',checked:option.enabled});
   const numeric={};
   for(const [key,label] of [['min_deposit','Minimum deposit'],['max_deposit','Maximum deposit'],['min_withdraw','Minimum withdrawal'],['max_withdraw','Maximum withdrawal'],['withdrawal_fee','Flat withdrawal fee']]){
    numeric[key]=field(form,label+' (USD)',{type:'number',min:key==='withdrawal_fee'?0:.01,max:1000000,step:.01,value:(option[key]/100).toFixed(2),required:true});
   }
-  const confirmations=field(form,'Required withdrawal confirmations',{type:'number',min:1,max:100000,value:option.confirmations,required:true});
+  const confirmations=field(form,'Required confirmations',{type:'number',min:1,max:100000,value:option.confirmations,required:true});
   const submit=submitButton(form,'Save '+option.symbol+' settings'),feedback=notice();form.append(feedback);
   bindForm(form,submit,feedback,async()=>{
    const body={asset:option.key,address:address.value,enabled:enabled.checked,confirmations:Number(confirmations.value)};

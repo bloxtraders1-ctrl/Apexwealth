@@ -9,9 +9,17 @@ export const assets = {
  'doge': ['DOGE','dogecoin',8,null,'https://blockchair.com/dogecoin/transaction/'],
  'btc': ['BTC','bitcoin',8,null,'https://mempool.space/tx/'],
  'eth': ['ETH','ethereum',18,null,'https://etherscan.io/tx/'],
+ 'bnb-bsc': ['BNB','bsc',18,null,'https://bscscan.com/tx/'],
+ 'xrp': ['XRP','xrpl',6,null,'https://livenet.xrpl.org/transactions/'],
  'usdc-ethereum': ['USDC','ethereum',6,'0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48','https://etherscan.io/tx/'],
  'usdc-base': ['USDC','base',6,'0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913','https://basescan.org/tx/']
 };
+
+const evmNetworks=['base','ethereum','bsc'];
+const bitcoinAlphabet='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+const xrplAlphabet='rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz';
+
+export const supportsWithdrawal=network=>network!=='xrpl';
 
 function base58Hex(value){
  if(!/^[1-9A-HJ-NP-Za-km-z]{25,92}$/.test(value))return '';
@@ -49,12 +57,17 @@ function segwitAddress(value,hrp){
 
 export function normalizeAddress(network,raw){
  const value=typeof raw==='string'?raw.trim():'';
- if(network==='base'||network==='ethereum'){
+ if(evmNetworks.includes(network)){
   try{
    const address=getAddress(value);
    if(/^0x0{40}$/i.test(address))throw Error();
    return address;
   }catch{check(false,'Enter a valid nonzero '+network+' address.');}
+ }
+ if(network==='xrpl'){
+  const bitcoinEncoding=Array.from(value,char=>bitcoinAlphabet[xrplAlphabet.indexOf(char)]||'!').join('');
+  check(/^r.{24,34}$/.test(value)&&base58Check(bitcoinEncoding,['00']),'Enter a valid XRP Ledger classic address.');
+  return value;
  }
  if(network==='solana'){
   const hex=base58Hex(value);
@@ -74,12 +87,12 @@ export function normalizeTx(network,raw){
   check(base58Hex(tx).length===128,'Enter a valid Solana transaction signature.');
   return tx;
  }
- if(network==='ethereum'||network==='base'){
+ if(evmNetworks.includes(network)){
   check(/^0x[a-f0-9]{64}$/i.test(tx),'Enter a 0x-prefixed transaction hash.');
   return tx.toLowerCase();
  }
  check(/^[a-f0-9]{64}$/i.test(tx),'Enter a 64-character transaction hash.');
- return tx.toLowerCase();
+ return network==='xrpl'?tx.toUpperCase():tx.toLowerCase();
 }
 
 export function parseDecimal(value,decimals,label){
