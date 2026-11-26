@@ -2,6 +2,8 @@ import {readdir,readFile} from 'node:fs/promises';
 import {createClient} from '@libsql/client';
 
 const migrations = new URL('../drizzle/', import.meta.url);
+const errorCode=error=>typeof error.code==='string'&&/^[A-Z0-9_]+$/.test(error.code)?' ('+error.code+')':'';
+class TursoMigrationError extends Error {}
 
 export async function prepareTursoDatabase(client) {
  const files=(await readdir(migrations)).filter(file=>/^\d+_.*\.sql$/.test(file)).sort();
@@ -17,16 +19,25 @@ export async function prepareTursoDatabase(client) {
  for(const file of files){
   if(applied.has(file))continue;
   const sql=await readFile(new URL(file,migrations),'utf8');
-  const transaction=await client.transaction('write');
+  let transaction;
+  let step='opening the write transaction';
   try{
-   const {rows:history}=await transaction.execute('SELECT 1 FROM turso_migrations WHERE name = ?', [file]);
+   transaction=await client.transaction('write');
+   step='checking migration history';
+   const {rows:history}=await transaction.execute({sql:'SELECT 1 FROM turso_migrations WHERE name = ?',args:[file]});
    if(!history.length){
+    step='applying the schema changes';
     await transaction.executeMultiple(sql);
-    await transaction.execute('INSERT INTO turso_migrations (name) VALUES (?)', [file]);
+    step='recording migration history';
+    await transaction.execute({sql:'INSERT INTO turso_migrations (name) VALUES (?)',args:[file]});
    }
+   step='committing the transaction';
    await transaction.commit();
+  }catch(error){
+   if(transaction)await transaction.rollback().catch(()=>{});
+   throw new TursoMigrationError('Turso migration '+file+' failed while '+step+errorCode(error)+'.');
   }finally{
-   transaction.close();
+   transaction?.close();
   }
  }
  return {
@@ -58,9 +69,7 @@ export async function openTurso(url,authToken) {
  }catch(error){
   client.close();
   // Keep connection details and tokens out of startup logs.
-  const code=typeof error.code==='string'&&/^[A-Z0-9_]+$/.test(error.code)?' ('+error.code+')':'';
-  const reason=error.message.startsWith('This database already contains 12x12 data')?error.message:
-   'Could not initialize the Turso database. Check its URL, token, and database status.';
-  throw new Error(reason+code);
+  if(error instanceof TursoMigrationError||error.message.startsWith('This database already contains 12x12 data'))throw error;
+  throw new Error('Could not connect to or inspect the Turso database'+errorCode(error)+'.');
  }
 }
