@@ -36,8 +36,8 @@ async function start(){
  const [account,me,networks]=await Promise.all([cashier('profile'),cashier('me'),cashier('options')]);
  options=networks.options;
  balance.textContent=cents(account.balance);
- const header=element('div',null,'panel profile-card');
- const info=element('div');
+ const header=element('div',null,'profile-overview');
+ const info=element('div',null,'panel profile-details');
  const form=element('form',null,'manual-form');
  const name=field(form,'Account name',{required:true,minLength:2,maxLength:48,autocomplete:'nickname',value:account.name});
  const save=submitButton(form,'Save name'), message=notice();
@@ -58,11 +58,18 @@ async function start(){
   info.append(copy);
  }
  if(me.admin)info.append(link('/admin/cashier','Open admin cashier'));
- const wallet=element('div',null,'wallet-summary');
+ const funds=element('section',null,'panel profile-funds');
+ funds.append(element('h2','Wallet overview'));
+ const wallet=element('div',null,'wallet-summary profile-balance');
  wallet.append(element('span','Available USD'),balance);
- info.append(wallet,creditPanel);
+ const metrics=element('div',null,'profile-metrics');
+ metrics.append(wallet,creditPanel);
+ const walletActions=element('div',null,'section-actions');
+ walletActions.append(link('/deposit','Deposit','primary'),link('/withdraw','Withdraw','muted-button'));
+ funds.append(metrics,walletActions);
  showNextCredit(account.nextCredit);
- header.append(form,info);
+ info.append(form);
+ header.append(funds,info);
  accountBox.replaceChildren(header);
  section.hidden=false;
  await load(0);

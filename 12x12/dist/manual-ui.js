@@ -32,10 +32,13 @@ export function bindForm(form,submit,message,handler){
  form.onsubmit=async event=>{
   event.preventDefault();
   if(busy)return;
+  const label=submit.textContent;
   busy=true;submit.disabled=true;message.textContent='';
+  submit.textContent='Working…';
+  message.dataset.tone='success';
   try{await handler();}
-  catch(error){message.textContent=error.message;}
-  finally{busy=false;submit.disabled=false;}
+  catch(error){message.dataset.tone='error';message.textContent=error.message;}
+  finally{busy=false;submit.disabled=false;if(submit.textContent==='Working…')submit.textContent=label;}
  };
 }
 export function submitButton(form,label){

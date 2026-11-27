@@ -15,13 +15,14 @@ if(form){
  form.onsubmit=async e=>{
   e.preventDefault();
   const feedback=document.getElementById('feedback'), pass=form.elements.password.value;
-  if(mode==='register'&&pass!==document.getElementById('confirm').value){feedback.textContent='Passwords must match.';return;}
-  const button=form.querySelector('button');button.disabled=true;
+  if(mode==='register'&&pass!==document.getElementById('confirm').value){feedback.dataset.tone='error';feedback.textContent='Passwords must match.';document.getElementById('confirm').focus();return;}
+  const button=form.querySelector('button'), label=button.textContent;button.disabled=true;feedback.textContent='';button.textContent='Signing in…';
+  if(mode==='register')button.textContent='Creating account…';
   try{
    await api(mode,{email:form.elements.email.value,password:pass});
    location.assign(next);
-  }catch(error){feedback.textContent=error.message;}
-  finally{button.disabled=false;}
+  }catch(error){feedback.dataset.tone='error';feedback.textContent=error.message;}
+  finally{button.disabled=false;button.textContent=label;}
  };
 }
 const nav=document.querySelector('.account-nav');

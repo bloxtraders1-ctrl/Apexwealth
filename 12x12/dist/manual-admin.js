@@ -124,8 +124,11 @@ async function queue(content,kind,scope,last,criteria={}){
  const apply=submitButton(filters,'Apply filters');
  const alert=notice();
  bindForm(filters,apply,alert,()=>queue(content,kind,status.value,null,{search:search.value.trim(),network:network.value}));
- content.replaceChildren(element('h2',sections[kind]),filters,alert);
- if(!rows.length)content.append(element('p','No requests match these filters.','secondary'));
+ const filterPanel=element('details',null,'cashier-filter-panel');
+ filterPanel.open=scope!=='open'||Boolean(criteria.search||criteria.network);
+ filterPanel.append(element('summary','Filter requests'),filters,alert);
+ content.replaceChildren(element('h2',sections[kind]),filterPanel);
+ if(!rows.length)content.append(element('p','No requests match these filters.','empty-state'));
  const reload=()=>queue(content,kind,scope,last,criteria);
  for(const row of rows){
   const option=options.find(item=>item.key===row.asset);
@@ -145,6 +148,9 @@ async function queue(content,kind,scope,last,criteria={}){
     if(focus)decision.focus();
    };
    if(row.status==='pending'){
+    const badge=element('span',statusLabel(row.status),'cashier-request-status');
+    badge.dataset.status=row.status;
+    controls.append(badge);
     const feedback=reviewButtons(row,controls,article,[
      ['approveManualDeposit','Approve'],['rejectDeposit','Reject','Deposit rejected by cashier.']
     ],result=>{
@@ -155,7 +161,9 @@ async function queue(content,kind,scope,last,criteria={}){
     });
    }else showDecision(row.status);
   }else{
-   controls.append(element('span',statusLabel(row.status),'cashier-request-status'));
+   const badge=element('span',statusLabel(row.status),'cashier-request-status');
+   badge.dataset.status=row.status;
+   controls.append(badge);
    if(['pending','processing'].includes(row.status)){
     reviewButtons(row,controls,article,[
      ['approveWithdrawal','Start payout','Cashier started the payout.'],
