@@ -5,7 +5,7 @@ import {check} from './chain.mjs';
 
 const defaults={min_deposit:1200,max_deposit:250000,min_withdraw:1,max_withdraw:250000,withdrawal_fee:0,confirmations:6};
 const transitions={
- approve:['deposit','pending','approved'], approveManualDeposit:['deposit','pending','approved'],
+ approve:['deposit','pending','approved'],
  rejectDeposit:['deposit','pending','rejected'],
  process:['withdrawal','pending','processing'], broadcast:['withdrawal','processing','broadcasting'],
  approveWithdrawal:['withdrawal','pending','broadcasting'],
@@ -18,6 +18,9 @@ const id=()=>crypto.randomUUID();
 const quoteScale=12;
 const identity=/^[a-f0-9-]{36}$/;
 const messages=[
+ ['payday skip in past','Choose today or a future UTC date.'],
+ ['payday already excluded','That date is already excluded from paydays.'],
+ ['payday credits already posted','A credit already posted for that UTC date. Choose a future date.'],
  ['wallet referral changed','Your referral was just recorded. Retry the investment.'],
  ['manual account held','This account is on cashier hold.'],
  ['manual insufficient balance','Insufficient available USD balance.'],
@@ -106,6 +109,10 @@ export async function manualCashier(req,env,user,{price=spotPrice,clock=()=>Math
    if(route==='affiliate')return json(await wallet.affiliateDashboard());
    if(route==='profile/history')return json(await wallet.history(url.searchParams.get('offset')));
    if(route==='invest')return json({...await wallet.access(),admin});
+   if(route==='admin/payday-skips'){
+    return json({today:new Date(now*1000).toISOString().slice(0,10),
+     rows:await all('SELECT day,reason,actor,created FROM wallet_payday_skips ORDER BY day DESC LIMIT 25')});
+   }
    if(route==='admin/reward-reserve')return json(await wallet.reserveStatus());
    if(route==='me')return json({userId:user,admin});
    if(route==='options'||route==='admin/options'){
@@ -209,6 +216,15 @@ export async function manualCashier(req,env,user,{price=spotPrice,clock=()=>Math
   if(supportRoute==='support/reply')return json(await support.reply(body,adminSupport));
   if(route==='profile')return json(await wallet.rename(body.name));
   if(route==='invest')return json(await wallet.invest(body));
+  if(route==='admin/payday-skips'){
+   const day=typeof body.day==='string'?body.day.trim():'';
+   check(/^\d{4}-\d{2}-\d{2}$/.test(day)&&day>='1971-01-01'&&day<='2199-12-31'&&
+    Number.isFinite(Date.parse(day))&&new Date(day).toISOString().slice(0,10)===day,'Choose a valid UTC date.');
+   const reason=reviewNote(body.reason,240);
+   const changed=await run('INSERT INTO wallet_payday_skips(day,reason,actor) VALUES(?,?,?) ON CONFLICT(day) DO NOTHING',day,reason,user);
+   const skip=await read('SELECT day,reason,actor,created FROM wallet_payday_skips WHERE day=?',day);
+   return json({skip,alreadyScheduled:changed.meta.changes===0});
+  }
   if(route==='admin/reward-reserve')return json(await wallet.fund(body));
   if(route==='admin/receiving-addresses'){
    const {addresses}=body;
@@ -333,8 +349,7 @@ export async function manualCashier(req,env,user,{price=spotPrice,clock=()=>Math
    check(row.kind===kind,'This action does not apply to the request.',409);
    const depositReview=kind==='deposit';
    if(depositReview&&row.status===to)return depositDecision(row);
-   const note=action==='approveManualDeposit'?'Cashier confirmed receipt of the quoted amount.':
-    action==='completeManualWithdrawal'?'Cashier recorded the payout sent.':reviewNote(body.note);
+   const note=action==='completeManualWithdrawal'?'Cashier recorded the payout sent.':reviewNote(body.note);
    let tx=row.tx,index=row.transfer_index,evidence=null,confirmations=row.confirmations,credit=row.credit;
    if(action==='sent'){
     tx=normalizeTx(row.network,body.tx);
@@ -343,12 +358,6 @@ export async function manualCashier(req,env,user,{price=spotPrice,clock=()=>Math
    const expected=(action==='rejectWithdrawal'||action==='approveWithdrawal')&&row.status==='processing'?'processing':
     action==='completeManualWithdrawal'&&row.status==='sent'?'sent':from;
    check(row.status===expected||row.status===to,'This request has already moved to another status.',409);
-   if(action==='approveManualDeposit'){
-    evidence={verification:'cashier',decision:'received'};
-    index=null;
-    confirmations=null;
-    credit=row.amount;
-   }
    if(action==='completeManualWithdrawal'){
     if(row.status==='broadcasting'||body.tx!==undefined)tx=normalizeTx(row.network,body.tx);
     check(tx&&(!row.tx||row.tx===tx),'The payout transaction ID differs from the one already recorded.',409);

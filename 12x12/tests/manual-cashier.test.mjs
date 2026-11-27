@@ -152,35 +152,34 @@ test('receiving addresses import atomically with admin permissions and preserve 
  assert.equal((await t.call('wallet')).balance,2400);
 });
 
-test('one-click cashier decisions record a single deposit credit without confirmation evidence',async()=>{
+test('deposit approval requires verified evidence and credits once after an interrupted response',async()=>{
  const t=setup();await t.configure();
  const q=await t.deposit();
- const request={id:q.id,action:'approveManualDeposit'};
- assert.equal((await t.call('admin/review',request,other)).code,403);
- assert.throws(()=>t.raw("UPDATE manual_payments SET status='approved',credit=amount WHERE id=?",q.id).run(),/manual approval evidence required/);
+ const shortcut={id:q.id,action:'approveManualDeposit'};
+ assert.equal((await t.call('admin/review',shortcut,other)).code,403);
+ assert.equal((await t.call('admin/review',shortcut,admin)).code,400);
+ assert.throws(()=>t.raw(`UPDATE manual_payments SET status='approved',credit=amount,
+  evidence='{"verification":"cashier","decision":"received"}' WHERE id=?`,q.id).run(),/manual approval evidence required/);
+ assert.equal((await t.call('wallet')).balance,0);
  t.loseResponse('UPDATE manual_payments SET status=');
- assert.equal((await t.call('admin/review',request,admin)).code,503);
- const approved=await t.call('admin/review',request,admin);
+ assert.equal((await t.approve(q)).code,503);
+ const approved=await t.approve(q);
  assert.equal(approved.status,'approved');
- assert.equal(approved.confirmations,null);
- assert.equal(approved.transfer_index,null);
- assert.deepEqual(await t.call('admin/review',request,admin),approved);
+ assert.equal(approved.confirmations,4);
+ assert.equal(approved.transfer_index,3);
+ assert.deepEqual(await t.approve(q),approved);
  assert.equal((await t.review(q.id,'rejectDeposit')).code,409);
  assert.equal((await t.call('wallet')).balance,10000);
  const audit=(await t.call('admin/audit?id='+q.id,null,admin)).rows;
- assert.deepEqual(JSON.parse(audit.at(-1).detail).evidence,{verification:'cashier',decision:'received'});
- const repeat=await t.deposit('200',hash('1'),other);
- assert.equal((await t.review(repeat.id,'approveManualDeposit')).code,409);
- assert.equal((await t.approve(repeat,{index:7})).code,409);
- assert.equal((await t.call('wallet',null,other)).balance,0);
+ assert.equal(JSON.parse(audit.at(-1).detail).evidence.verification,'manual');
  const pending=await t.deposit('100',hash('5'));
- const results=await Promise.all([t.review(pending.id,'approveManualDeposit'),t.review(pending.id,'rejectDeposit')]);
+ const results=await Promise.all([t.approve(pending),t.review(pending.id,'rejectDeposit')]);
  assert.deepEqual(results.map(result=>result.code).sort(),[200,409]);
 });
 
 test('cashier records an external payout using only its ID and cannot approve or refund it twice',async()=>{
  const t=setup();await t.configure();t.fundBasis();
- await t.review((await t.deposit()).id,'approveManualDeposit');
+ await t.approve(await t.deposit());
  const q=await t.quote('withdrawal','5');
  await t.call('submit',{id:q.id});
  const request={id:q.id,action:'completeManualWithdrawal',tx:hash('2')};
@@ -478,6 +477,37 @@ test('a plan opened before an observed holiday waits until the following payday'
  assert.equal((await t.call('wallet')).balance,0);
  t.tick(1);
  assert.equal((await t.call('wallet')).balance,144);
+});
+
+test('an admin can skip a payday before the first credit without reducing the plan count',async()=>{
+ const t=setup({controlDbTime:true});
+ const opened=Date.parse('2026-12-07T12:00:00Z')/1000;
+ const wednesday=opened+2*86400;
+ t.tick(opened-1_795_500_000);
+ await t.configure();
+ await t.approve(await t.deposit('12'));
+ await t.call('invest',{plan:1,amount:'12',id:crypto.randomUUID()});
+ t.tick(86400-60);
+ const body={day:'2026-12-08',reason:'Unexpected public holiday'};
+ assert.equal((await t.call('admin/payday-skips',body)).code,403);
+ assert.equal((await t.call('admin/payday-skips',null,investor)).code,403);
+ const skipped=await t.call('admin/payday-skips',body,admin);
+ assert.equal(skipped.code,200);
+ assert.equal(skipped.alreadyScheduled,false);
+ assert.equal((await t.call('admin/payday-skips',body,admin)).alreadyScheduled,true);
+ assert.equal((await t.call('admin/payday-skips',null,admin)).rows[0].actor,admin);
+ assert.equal((await t.call('profile')).nextCredit.at,wednesday);
+ t.tick(60);
+ assert.equal((await t.call('wallet')).balance,0);
+ t.tick(86400);
+ assert.equal((await t.call('wallet')).balance,144);
+ assert.match((await t.call('admin/payday-skips',{...body,day:'2026-12-09'},admin)).error,/already posted/);
+ assert.match((await t.call('admin/payday-skips',{...body,day:'2026-12-12'},admin)).error,/already excluded/);
+ assert.match((await t.call('admin/payday-skips',{...body,day:'2026-12-25'},admin)).error,/already excluded/);
+ assert.match((await t.call('admin/payday-skips',{...body,day:'2026-12-07'},admin)).error,/future UTC/);
+ assert.equal((await t.call('admin/payday-skips',{...body,day:'2026-02-30'},admin)).code,400);
+ assert.equal(t.raw('SELECT COUNT(*) AS n FROM wallet_plan_paydays WHERE user_id=?',investor).first().n,12);
+ assert.equal((await t.call('profile/history')).rows.filter(row=>row.kind==='plan payout').length,1);
 });
 
 test('the payday cutover preserves credits already earned under the prior schedule',async()=>{

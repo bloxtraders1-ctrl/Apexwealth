@@ -5,7 +5,7 @@ import {cashier,cents,when,assetLabel,statusLabel,field,button,notice,bindForm,s
 const root=document.getElementById('manual-admin');
 const view=element('section',null,'manual-view');
 const tabs=element('nav',null,'manual-tabs');
-const sections={deposit:'Deposit queue',withdrawal:'Withdrawal queue',users:'Users',support:'Support tickets',settings:'Networks and limits'};
+const sections={deposit:'Deposit queue',withdrawal:'Withdrawal queue',users:'Users',support:'Support tickets',settings:'Networks and limits',paydays:'Payday exceptions'};
 let options;
 
 async function start(){
@@ -26,11 +26,47 @@ async function open(section){
    await showSettings(content);
    if(location.hash==='#investment-reserve')document.getElementById('investment-reserve')?.scrollIntoView();
   }
+  else if(section==='paydays')await showPaydaySkips(content);
   else if(section==='users')await users(content);
   else if(section==='support')await mountSupport(content,{admin:true});
   else await queue(content,section,'open');
  }catch(error){content.replaceChildren(element('p',error.message,'wallet-feedback'));}
 }
+async function showPaydaySkips(content){
+ const {today,rows}=await cashier('admin/payday-skips');
+ const form=element('form',null,'panel manual-form payday-form');
+ form.append(element('h3','Schedule a skipped payday'),
+  element('p','Choose today or a future date in UTC. The date will not count toward the plan. Changes cannot be made after a scheduled credit has posted for the date.','secondary'));
+ const day=field(form,'Date (UTC)',{type:'date',value:today,min:today,max:'2199-12-31',required:true});
+ const reason=field(form,'Internal reason',{tag:'textarea',required:true,minLength:5,maxLength:240});
+ const confirm=field(form,'I confirm this affects all scheduled wallet plan credits for the selected date.',{type:'checkbox',required:true});
+ const submit=submitButton(form,'Skip selected payday'),feedback=notice();
+ form.append(feedback);
+ const log=element('ul',null,'payday-admin-log');
+ function display(entries){
+  log.replaceChildren(...entries.map(entry=>{
+   const item=element('li');
+   const date=element('time',entry.day);date.dateTime=entry.day;
+   item.append(date,element('span',entry.reason));
+   return item;
+  }));
+  if(!entries.length)log.append(element('li','No exceptions have been scheduled.','secondary'));
+ }
+ display(rows);
+ bindForm(form,submit,feedback,async()=>{
+  const {skip,alreadyScheduled}=await cashier('admin/payday-skips',{day:day.value,reason:reason.value});
+  const existing=rows.findIndex(entry=>entry.day===skip.day);
+  if(existing>=0)rows[existing]=skip;
+  else rows.push(skip);
+  rows.sort((a,b)=>b.day.localeCompare(a.day));
+  display(rows.slice(0,25));
+  confirm.checked=false;
+  reason.value='';
+  feedback.textContent=alreadyScheduled?skip.day+' is already scheduled to be skipped.':skip.day+' will be skipped.';
+ });
+ content.replaceChildren(element('h2','Payday exceptions'),form,element('h3','Recent exceptions'),log);
+}
+
 async function audit(id,details){
  try{
   const {rows}=await cashier('admin/audit?id='+encodeURIComponent(id));
@@ -67,7 +103,7 @@ function reviewButtons(row,controls,article,actions,onReviewed){
     await onReviewed(result);
    }catch(error){feedback.textContent=error.message;}
    finally{for(const control of buttons)control.disabled=false;}
-  },buttons.length===0?'primary':undefined));
+  },buttons.length===0&&!action.startsWith('reject')?'primary':undefined));
  }
  controls.append(...buttons);
  article.append(feedback);
@@ -86,6 +122,36 @@ function fillRequestDetails(details,row,option,kind,openUser){
     :[['Transfer index',row.transfer_index],['Confirmations',row.confirmations]]),
    ['Quote expires',when(row.expires)],['Submitted',when(row.created)],['Updated',when(row.updated)],['Review notes',row.note]]),
   button('View user',openUser),auditDetails(row.id));
+}
+
+function depositEvidenceForm(row,option,after){
+ const details=element('details',null,'manual-action');
+ details.append(element('summary','Verify deposit'));
+ const form=element('form',null,'manual-form');
+ const withIndex=option.token||!['ethereum','base','bsc','tron','xrpl'].includes(option.network);
+ form.append(element('p','Open the transaction in the explorer and enter the values shown for the successful transfer. Confirm the transfer belongs to this depositor.','secondary'),
+  makeDetails([['Quoted network',option.network],['Receiving address',element('code',row.address)],['Expected amount',row.crypto+' '+option.symbol],
+   ['Token contract',option.token||'Native asset'],['Transaction',transactionLink(option,row.tx)],['Quote expires',when(row.expires)]]));
+ const observedNetwork=field(form,'Verified network',{required:true,spellcheck:false,placeholder:option.network});
+ const address=field(form,'Verified receiving address',{required:true,maxLength:120,spellcheck:false});
+ const crypto=field(form,'Received crypto amount',{required:true,inputMode:'decimal'});
+ const token=option.token?field(form,'Verified token contract',{required:true,maxLength:120,spellcheck:false}):null;
+ const confirmations=field(form,'Confirmations',{type:'number',min:row.required_confirmations,step:1,required:true});
+ const index=withIndex?field(form,'Transfer or output index',{type:'number',min:0,step:1,required:true}):null;
+ const paidAt=field(form,'Block time (UTC)',{type:'datetime-local',step:1,required:true});
+ const success=field(form,'I verified that the transaction succeeded',{type:'checkbox',required:true});
+ const ownershipVerified=field(form,'I verified that the depositor sent this transfer',{type:'checkbox',required:true});
+ const note=field(form,'Review note',{tag:'textarea',required:true,minLength:5,maxLength:1000});
+ const submit=submitButton(form,'Approve verified deposit'),feedback=notice();
+ form.append(feedback);
+ bindForm(form,submit,feedback,async()=>{
+  await after(await cashier('admin/review',{id:row.id,action:'approve',network:observedNetwork.value.trim().toLowerCase(),
+   address:address.value.trim(),crypto:crypto.value.trim(),token:token?.value.trim(),
+   confirmations:Number(confirmations.value),index:index?Number(index.value):undefined,
+   paidAt:Math.floor(Date.parse(paidAt.value+'Z')/1000),success:success.checked,ownershipVerified:ownershipVerified.checked,note:note.value}));
+ });
+ details.append(form);
+ return details;
 }
 
 function payoutForm(row,option,after){
@@ -151,14 +217,13 @@ async function queue(content,kind,scope,last,criteria={}){
     const badge=element('span',statusLabel(row.status),'cashier-request-status');
     badge.dataset.status=row.status;
     controls.append(badge);
-    const feedback=reviewButtons(row,controls,article,[
-     ['approveManualDeposit','Approve'],['rejectDeposit','Reject','Deposit rejected by cashier.']
-    ],result=>{
-     const resolved={...row,...result};
-     feedback.remove();
-     showDecision(resolved.status,true);
-     fillRequestDetails(details,resolved,option,kind,openUser);
+    reviewButtons(row,controls,article,[['rejectDeposit','Reject','Deposit rejected by cashier.']],reload);
+    const verification=depositEvidenceForm(row,option,result=>{
+     verification.remove();
+     showDecision(result.status,true);
+     fillRequestDetails(details,{...row,...result},option,kind,openUser);
     });
+    article.append(verification);
    }else showDecision(row.status);
   }else{
    const badge=element('span',statusLabel(row.status),'cashier-request-status');

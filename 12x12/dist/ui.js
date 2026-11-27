@@ -30,16 +30,7 @@ export function calc(separate=true, tier=tiers[0]) {
  const daily=Math.floor(Math.round(n*100)*rate/100)/100;
  $('amount-error').textContent=valid?'':'Enter '+usd(min)+'–'+usd(max)+' with up to two decimal places.';
  if(valid){range.value=n;range.style.setProperty('--progress',((n-min)/(max-min)*100)+'%');}
- for(const [id,value] of [['daily',daily],['term',daily*days]]){
-  const result=$(id);
-  const next=valid?usd(value):'—';
-  if(result.textContent===next)continue;
-  result.textContent=next;
-  if(valid&&!matchMedia('(prefers-reduced-motion: reduce)').matches){
-   result.getAnimations().forEach(animation=>animation.cancel());
-   result.animate([{opacity:.65,transform:'translateY(3px)'},{opacity:1,transform:'none'}],{duration:180,easing:'ease-out'});
-  }
- }
+ $('daily').textContent=valid?usd(daily):'—';$('term').textContent=valid?usd(daily*days):'—';
  $('principal-note').textContent=separate?'Your invested principal unlocks separately at maturity. Crypto withdrawals are subject to the daily cap.':'The '+days+'-day total includes your invested principal. Crypto withdrawals are subject to the daily cap.';
  if(!valid){$('plot').replaceChildren();return;}
  const x=i=>50+i*516/days,y=i=>76-i*64.8/days;

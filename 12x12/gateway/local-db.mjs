@@ -55,5 +55,11 @@ export function localDB(file){
  if(!db.prepare("SELECT 1 FROM sqlite_master WHERE name='wallet_plan_paydays'").get()){
   db.exec('BEGIN;'+readFileSync('drizzle/0016_business_day_credits.sql','utf8')+'COMMIT;');
  }
+ if(!db.prepare("SELECT 1 FROM sqlite_master WHERE name='manual_verified_deposit_only'").get()){
+  db.exec('BEGIN;'+readFileSync('drizzle/0017_verified_deposit_approvals.sql','utf8')+'COMMIT;');
+ }
+ if(!db.prepare("SELECT 1 FROM sqlite_master WHERE name='wallet_payday_skip_guard'").get()){
+  db.exec('BEGIN;'+readFileSync('drizzle/0018_payday_exceptions.sql','utf8')+'COMMIT;');
+ }
  return {prepare(s){const st=db.prepare(s);return {bind(...a){return {first:()=>st.get(...a),all:()=>({results:st.all(...a)}),run:()=>({meta:{changes:st.run(...a).changes}})};}};}};
 }

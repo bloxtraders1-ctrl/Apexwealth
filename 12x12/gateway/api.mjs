@@ -23,11 +23,6 @@ export async function handleAPI(req,env,user,mode,chainOverride){
    const schedule=await env.DB.prepare('SELECT launch_at AS launchAt, unixepoch() AS now FROM platform_launch WHERE id=1').bind().first();
    return json(schedule);
   }
-  if(route==='payday-holidays'&&req.method==='GET'){
-   const {results}=await env.DB.prepare(`SELECT day,name FROM us_federal_holidays
-    WHERE day>=date(unixepoch(),'unixepoch') ORDER BY day LIMIT 6`).bind().all();
-   return json({holidays:results});
-  }
   if(route==='status')return json({enabled,signedIn:!!user,mode,environment:env.accountEnvironment||mode,separatePrincipal:cfg.separatePrincipal,capOnBalance:cfg.capOnBalance});
   if(route==='settlement-status'&&req.method==='GET'){
    const cfgState={depositReady:false,withdrawalReady:false};

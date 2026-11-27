@@ -201,12 +201,8 @@ function reviewQuote(content,quote){
   if(form.isConnected){
    footer.replaceChildren();
    footer.hidden=true;
-   const result=element('h2',statusLabel(request.status),'wallet-result');
-   result.setAttribute('aria-live','polite');
-   result.tabIndex=-1;
-   content.replaceChildren(result,element('p','Request ID '+request.id,'secondary'),
+   content.replaceChildren(element('h2',statusLabel(request.status)),element('p','Request ID '+request.id,'secondary'),
     link('/profile#history','View wallet history','muted-button'));
-   result.focus();
   }
   const wallet=await cashier('wallet').catch(()=>null);
   if(wallet&&panel.isConnected)updateBalance(wallet);

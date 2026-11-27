@@ -1,4 +1,4 @@
-export const pages={'/':'index','/plan':'plan','/how-it-works':'how-it-works','/referrals':'referrals','/profile':'profile','/review':'mobile-review','/faq':'faq','/cashier-review':'cashier-review','/admin/cashier':'manual-admin','/login':'login','/register':'register'};
+export const pages={'/':'index','/plan':'plan','/how-it-works':'how-it-works','/referrals':'referrals','/profile':'profile','/review':'mobile-review','/faq':'faq','/terms':'terms','/privacy':'privacy','/cashier-review':'cashier-review','/admin/cashier':'manual-admin','/login':'login','/register':'register'};
 export function assetPath(path){
  const clean=path.length>1?path.replace(/\/$/,''):path;
  return Object.hasOwn(pages,clean)?'/'+pages[clean]+'.html':clean;

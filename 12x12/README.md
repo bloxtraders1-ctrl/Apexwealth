@@ -2,9 +2,13 @@
 
 12x12 accepts manual cryptocurrency deposits into a USD wallet. After the cashier approves the deposit, the user can invest from that balance. Existing Base vault receipts and their separate settlement flow remain supported.
 
+## Production release checks
+
+Restore a copy of the current production database into an isolated staging service. Apply migrations 0016 through 0018 there, compare account IDs and wallet balances before and after, verify an investment through its next payday and rehearse deposit review, payout and restore. Check the front-end hostname actually points to that backend before accepting deposits. Verify how the operator will fund withdrawals from actual settlement funds. The included service and data disclosures reflect the code and require the operator’s verified legal identity, contact details, policies and jurisdiction-specific review before public release.
+
 ## Wallet paydays
 
-Starting with migration 0016, remaining wallet investment and recurring referral credits use eligible UTC weekdays. Saturday, Sunday, and observed nationwide U.S. federal holidays do not count toward a plan’s 12, 15, or 20 credits. Credits keep their scheduled UTC time of day. Earlier credits remain on the original schedule, and a separately returned principal matures with the final credit. The calendar table includes recurring nationwide holidays through 2199. The homepage reads upcoming dates from that same table. Existing Base vault contracts and cashier withdrawal processing are unchanged.
+Starting with migration 0016, remaining wallet investment and recurring referral credits use eligible UTC weekdays. Saturday, Sunday, and observed nationwide U.S. federal holidays do not count toward a plan’s 12, 15, or 20 credits. Credits keep their scheduled UTC time of day. Earlier credits remain on the original schedule, and a separately returned principal matures with the final credit. The calendar table includes recurring nationwide holidays through 2199. Admins can skip an additional date in Admin cashier → Payday exceptions. Enter the UTC date and an internal reason before any scheduled credits have posted for the date. The date is excluded from the remaining credit count. Existing Base vault contracts and cashier withdrawal processing are unchanged.
 
 ## Run on your computer or Render
 
@@ -47,7 +51,7 @@ To build the Vercel artifact locally in PowerShell, set `$env:APEX_API_ORIGIN = 
 
 ## Plans
 
-| Plan | Daily credit | Days | USD investment | Funded direct referrals |
+| Plan | Credit per payday | Paydays | USD investment | Funded direct referrals |
 | --- | --- | --- | --- | --- |
 | 1 | 12% | 12 | $12–$1,200 | 0 |
 | 2 | 15% | 15 | $50–$1,500 | 5 |
@@ -58,8 +62,8 @@ Wallet investment credits use the invested amount. The cashier’s configured da
 ## Investor flow
 
 - Open the wallet to request a cryptocurrency deposit. Send the quoted amount and submit the transaction hash. Funds become available in USD after cashier approval.
-- Select **Invest** on an eligible plan and confirm the USD amount. The wallet deducts it once and reserves plan credits and commissions from the site's funded reward reserve. New wallet plans credit every 24 hours from confirmation. Profile shows a countdown to the next credit. Existing plans keep their original schedule.
-- Visit **Referrals** to copy your link after your first investment. You earn 12% of a direct referral’s first funded investment and 1% of each referred plan’s investment amount every day it runs.
+- Select **Invest** on an eligible plan and confirm the USD amount. The wallet deducts it once and records plan and referral obligations. The payday schedule above governs credits, and Profile shows the next eligible credit.
+- Visit **Referrals** to copy your link after your first investment. You earn 12% of a direct referral’s first funded investment and 1% of each referred plan’s investment amount on each eligible payday.
 - Open the profile icon next to the wallet to edit your account name and review all your deposit, withdrawal, investment and credit history. Existing Base receipt and withdrawal requests are listed here too.
 - Open the wallet to submit a withdrawal and choose the receiving address for that request. Existing Base vault withdrawals and refund requests can be opened from the corresponding record in Profile. Previous wallet-connected positions can still be accessed at /legacy.html#portfolio.
 
@@ -88,16 +92,16 @@ The existing 12x12 account is the identity for all manual requests. The additive
        npm start
 
 4. Open [Admin cashier](http://localhost:3000/admin/cashier) → **Networks and limits**. Enter real receiving addresses you control. Set minimums, maximums, withdrawal fees, and required withdrawal confirmations. Verify the wallet and quote before enabling each option. Signed-in users see the address on a deposit quote. The initial deposit minimum is $12 and deposit fees are zero.
-5. On Render keep the existing database path and hosting commands. Add **APEX_CASHIER_ADMIN_IDS** to the service environment. For Sites, add the same server-side variable and deploy the Worker build with all pending migrations, including 0010. Allow outbound HTTPS to Kraken and Coinbase for USD spot quotes. The cashier uses Kraken first and falls back to Coinbase. These public endpoints require no API key. A failed quote leaves the request uncreated. Operators pay externally with their existing wallets.
+5. On Render keep the existing database path and hosting commands. Add **APEX_CASHIER_ADMIN_IDS** to the service environment. For Sites, add the same server-side variable and deploy the Worker build with all pending migrations, including 0016 through 0018. Allow outbound HTTPS to Kraken and Coinbase for USD spot quotes. The cashier uses Kraken first and falls back to Coinbase. These public endpoints require no API key. A failed quote leaves the request uncreated. Operators pay externally with their existing wallets.
 
-### Fund wallet investment credits
+### Reconcile wallet obligations
 
-In **Admin cashier → Networks and limits → Investment reward reserve**, transfer approved USD from an administrator’s wallet. This records a final transfer into the reserve. New wallet investments require enough uncommitted reserve to cover the full term and any referral commission. With the default terms, one $100 Plan 1 investment needs $144 of available reserve for its 12 daily credits. If this is the first investment for a referred user, that becomes $168 including the $12 one-time commission and twelve $1 daily commissions. Funds already in the investor’s wallet count toward principal. The reserve is separate from the on-chain Base vault. Migration 0009 adds this reserve, the profile display name, and wallet plans without rewriting prior account balances or requests.
+The admin funding balance is an internal bookkeeping figure. Players do not fund it to earn credits. Separately reconcile the actual crypto available for withdrawals against outstanding wallet balances and obligations.
 
 ### Review and settlement
 
 - A quote records the market rate, provider, and crypto amount. The cashier can review a submitted deposit any time after the user submits its transaction hash.
-- In **Deposit queue**, open **Approve** and compare the transfer with the quote using the linked explorer. Enter the observed network, receiving address, token contract if applicable, crypto amount, confirmations, block time and transfer index when the network provides one. Verify that the customer made the transfer. Approval credits the exact quoted USD once for a matching transfer in the quote window, and records the evidence and cashier in the audit history. The database uses the network, hash and transfer index to prevent duplicate credits. Existing approvals without evidence still reserve their entire hash. **Reject** records a reason and closes the request without a credit.
+- In **Deposit queue**, open **Verify deposit**. Compare the transfer with the quote in the explorer and record the verified network, receiving address, amount, token contract if applicable, confirmations, UTC block time and transfer index when required. Verify that it belongs to the depositor before approving. Migration 0017 rejects new evidence-free approvals and preserves historical approvals.
 - After a quote expires, review is still possible if the transfer was included in a block during the original quote window. A late or mismatched transfer stays pending for manual reconciliation. Check custody records and arrange any refund externally before rejecting, then record the reconciliation in the rejection note.
 - The manual USD balance is separate from the Base investment vault. The manual cap starts at **12% of recorded invested USD principal**, per UTC day, including wallet investments and eligible legacy receipts. It includes fees and all outstanding or paid requests created that day. Accounts with no recorded funded principal have no manual withdrawal allowance. Approved deposits add USD cash, and investment is a separate action from the Plans page.
 - Withdrawal confirmation reserves the quoted USD amount plus its flat fee. The quote ID is the idempotency key. After an interruption, reopen the cashier in the same tab or inspect history. A user can cancel a pending request and an admin can reject and refund it before the broadcast lock.
