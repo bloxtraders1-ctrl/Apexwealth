@@ -23,6 +23,10 @@ const creditDate=element('time',null,'secondary');
 creditPanel.append(creditLabel,creditTimer,creditDate);
 creditPanel.hidden=true;
 let creditTimeout;
+let historyFrontier;
+let historyRequest=0;
+const creditKinds=new Set(['plan payout','principal returned','first referral reward','daily referral reward']);
+const entryKey=row=>JSON.stringify([row.id,row.kind,row.created]);
 let options=[];
 const next='?next='+encodeURIComponent('/profile');
 async function start(){
@@ -104,6 +108,7 @@ async function refreshCredit(){
   balance.textContent=cents(account.balance);
   showNextCredit(account.nextCredit);
   window.dispatchEvent(new Event('apex-wallet-balance-changed'));
+  void load(0,{onlyNewCredits:true}).catch(()=>{});
  }catch{
   creditTimeout=setTimeout(refreshCredit,5000);
  }
@@ -174,11 +179,30 @@ function recordAction(label,handler){
  return control;
 }
 
-async function load(offset){
+async function load(offset,{onlyNewCredits=false}={}){
+ const request=onlyNewCredits?historyRequest:++historyRequest;
  const {rows,next:more}=await cashier('profile/history?offset='+offset);
- if(offset===0)rowsBox.replaceChildren();
+ if(request!==historyRequest)return;
+ const newCredits=new Set();
+ if(offset===0){
+  for(const row of rows){
+   const key=entryKey(row);
+   if(historyFrontier&&row.status==='credited'&&creditKinds.has(row.kind)&&row.amount>0&&
+    (row.created>historyFrontier.at||(row.created===historyFrontier.at&&!historyFrontier.keys.has(key)))){
+    newCredits.add(key);
+   }
+  }
+  if(onlyNewCredits&&!newCredits.size)return;
+  const at=rows[0]?.created??0;
+  historyFrontier={at,keys:new Set(rows.filter(row=>row.created===at).map(entryKey))};
+  rowsBox.replaceChildren();
+ }
  if(!rows.length&&offset===0)rowsBox.append(element('p','Your deposits, withdrawals, investments and credits will appear here.','secondary'));
- for(const row of rows)rowsBox.append(makeCard(row));
+ for(const row of rows){
+  const card=makeCard(row);
+  if(newCredits.has(entryKey(row)))card.classList.add('credit-arrival');
+  rowsBox.append(card);
+ }
  actions.replaceChildren(recordAction('Refresh',()=>load(0)));
  rowsBox.querySelector('[data-history-more]')?.remove();
  if(more!==null){

@@ -35,10 +35,11 @@ export function bindForm(form,submit,message,handler){
   const label=submit.textContent;
   busy=true;submit.disabled=true;message.textContent='';
   submit.textContent='Working…';
+  submit.setAttribute('aria-busy','true');
   message.dataset.tone='success';
   try{await handler();}
   catch(error){message.dataset.tone='error';message.textContent=error.message;}
-  finally{busy=false;submit.disabled=false;if(submit.textContent==='Working…')submit.textContent=label;}
+  finally{busy=false;submit.removeAttribute('aria-busy');submit.disabled=false;if(submit.textContent==='Working…')submit.textContent=label;}
  };
 }
 export function submitButton(form,label){

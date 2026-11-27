@@ -72,7 +72,8 @@ export function createWalletControl(status){
   if(!dialog.open)dialog.showModal();
   if(!status.signedIn){login(direction,query);return;}
   const panel=element('section');
-  const loading=element('p','Loading wallet…','secondary');
+  const loading=element('p','Loading wallet…','secondary wallet-loading');
+  loading.setAttribute('role','status');
   content.append(loading,panel);
   try{
    if(base){
@@ -98,16 +99,27 @@ export function createWalletControl(status){
     });
    }
   }catch(error){
-   if(request===revision)panel.replaceChildren(element('p',error.message,'wallet-feedback'));
+   if(request===revision){
+    const failure=element('p',error.message,'wallet-feedback');
+    failure.setAttribute('role','status');
+    failure.dataset.tone='error';
+    panel.replaceChildren(failure);
+   }
   }finally{loading.remove();}
  }
 
  dialog.onclick=event=>{if(event.target===dialog)dialog.close();};
  dialog.addEventListener('close',()=>{
-  revision++;
-  content.replaceChildren();
-  footer.replaceChildren();
-  footer.hidden=true;
+  const closed=++revision;
+  const cleanup=()=>{
+   if(dialog.open||closed!==revision)return;
+   content.replaceChildren();
+   footer.replaceChildren();
+   footer.hidden=true;
+  };
+  const exits=dialog.getAnimations();
+  if(exits.length)void Promise.allSettled(exits.map(animation=>animation.finished)).then(cleanup);
+  else cleanup();
   const url=new URL(location.href);
   if(url.searchParams.has('wallet')){
    for(const key of ['wallet','asset','plan','ref'])url.searchParams.delete(key);

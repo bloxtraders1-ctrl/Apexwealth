@@ -172,7 +172,7 @@ td, th { border-color: var(--line); }
 .orbital-stage, .referral-hero { background: var(--surface); }
 #metrics, .ref-teaser, .mobile-review .panel { background: var(--surface); border-color: var(--line); box-shadow: none; }
 body.mobile-review { background: var(--canvas); color: var(--ink); }
-[data-reveal].entered, .star-dust, .orbital-light { animation: none; }
+.star-dust, .orbital-light { animation: none; }
 
 @media (max-width: 850px) {
   .top-inner > nav { overflow: visible; flex-wrap: wrap; column-gap: 12px; row-gap: 0; }
@@ -402,3 +402,98 @@ footer > a:not(.footer-brand):hover { color: var(--accent); }
 .mobile-review #review-dimensions { background: var(--surface); border-color: var(--line); }
 
 .ref-teaser small { color: var(--muted); }
+
+.profile-metrics .profile-next-credit [role="timer"] {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.wallet-loading { color: var(--muted); }
+.wallet-result { color: var(--accent); }
+.credit-arrival { outline: 2px solid var(--accent); outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) {
+  .credit-arrival { outline: none; border-color: var(--accent); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :root {
+    --control-motion: 180ms;
+    --entrance-motion: 360ms;
+    --motion-out: cubic-bezier(.16, 1, .3, 1);
+  }
+
+  .identity-poster h1 { animation: cobalt-arrive 350ms var(--motion-out) both; }
+  .identity-stamp { animation: cobalt-stamp 410ms 55ms var(--motion-out) both; }
+  .identity-summary .launch-actions { animation: cobalt-arrive 330ms 108ms var(--motion-out) both; }
+  .home-page [data-reveal].entered { animation: cobalt-arrive var(--entrance-motion) var(--motion-out); }
+  @keyframes cobalt-arrive {
+    from { opacity: .42; transform: translateY(9px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes cobalt-stamp {
+    from { opacity: .25; clip-path: inset(0 0 35% 28%); transform: rotate(-7deg) translateY(6px); }
+    to { opacity: 1; clip-path: inset(0); transform: rotate(-4deg); }
+  }
+
+  .top :is(a, button, summary), .new-page :is(.primary, .muted-button),
+  dialog :is(.primary, .muted-button) {
+    transition: background-color var(--control-motion) ease, border-color var(--control-motion) ease, color var(--control-motion) ease;
+  }
+  .tier-card {
+    transition: border-color var(--control-motion) ease, background-color var(--control-motion) ease, transform var(--control-motion) var(--motion-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .tier-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+  }
+  .tier-card:active { transform: translateY(1px); }
+  .tier-card:focus-within { border-color: var(--accent); }
+
+  .top nav a:is(.active, :hover, [aria-current="page"]) { text-decoration: none; }
+  .top nav a::after, .top nav a.active::after {
+    content: ''; position: absolute; inset: auto 4px 4px; height: 2px;
+    background: currentColor; transform: scaleX(0); transform-origin: left;
+    transition: transform var(--control-motion) var(--motion-out);
+  }
+  .top nav a:is(.active, [aria-current="page"], :hover, :focus-visible)::after { transform: scaleX(1); }
+  .top nav a:is(.active, [aria-current="page"])::after {
+    animation: cobalt-indicator 210ms var(--motion-out);
+  }
+  @keyframes cobalt-indicator { from { transform: scaleX(.24); opacity: .4; } }
+  @media (max-width: 850px) {
+    .top-inner > nav { animation: cobalt-arrive 190ms var(--motion-out); }
+  }
+  .account-menu[open] .account-menu-links { animation: cobalt-arrive var(--control-motion) var(--motion-out); }
+  @supports selector(::details-content) {
+    .account-menu::details-content {
+      opacity: 0;
+      transition: opacity var(--control-motion) ease, content-visibility var(--control-motion) allow-discrete;
+    }
+    .account-menu[open]::details-content { opacity: 1; }
+  }
+
+  dialog:is(.wallet-dialog, .support-dialog) {
+    opacity: 0;
+    transform: translateY(7px) scale(.99);
+    transition: opacity 150ms ease, transform 150ms ease, overlay 150ms allow-discrete, display 150ms allow-discrete;
+  }
+  dialog:is(.wallet-dialog, .support-dialog)[open] {
+    opacity: 1;
+    transform: none;
+    transition-duration: 200ms;
+    transition-timing-function: var(--motion-out);
+  }
+  dialog:is(.wallet-dialog, .support-dialog):not([open]) { pointer-events: none; }
+  @starting-style {
+    dialog:is(.wallet-dialog, .support-dialog)[open] {
+      opacity: 0;
+      transform: translateY(7px) scale(.99);
+    }
+  }
+  .wallet-result, dialog .wallet-feedback:not(:empty) { animation: cobalt-feedback var(--control-motion) ease-out; }
+  .wallet-loading, dialog [aria-busy="true"] { animation: cobalt-feedback 220ms ease-out; }
+  @keyframes cobalt-feedback { from { opacity: .55; } }
+  .credit-arrival { animation: cobalt-credit 460ms ease-out both; }
+  @keyframes cobalt-credit {
+    from { background: var(--deep-accent); outline-color: var(--accent); }
+    to { background: var(--surface); outline-color: transparent; }
+  }
+}
