@@ -1,0 +1,213 @@
+/* Shared 12x12 interface. Load after the page-specific styles. */
+:root {
+  --canvas: #0a1220;
+  --surface: #111e2e;
+  --inset: #0c1725;
+  --line: #2a3d51;
+  --ink: #eef5fc;
+  --muted: #b2c3d6;
+  --accent: #88e8f7;
+  --gutter: clamp(16px, 4vw, 56px);
+  --panel-pad: clamp(16px, 2.4vw, 32px);
+  --panel-radius: 14px;
+  --control-radius: 8px;
+}
+
+body { background: var(--canvas); color: var(--ink); }
+.atmosphere { display: none; }
+.top { background: var(--inset); border-bottom: 1px solid var(--line); }
+.top-inner, main, footer { width: min(1248px, calc(100% - 2 * var(--gutter))); }
+.top-inner { min-height: 72px; height: auto; gap: 20px; }
+.top .brand { gap: 8px; font-size: 24px; letter-spacing: -.04em; }
+.top .brand img { width: 32px; }
+.top nav { gap: clamp(8px, 1.8vw, 24px); }
+.top nav a, .top nav button {
+  min-height: 44px;
+  padding-inline: 4px;
+  font-size: .875rem;
+  color: var(--muted);
+}
+.top nav a.active::after { bottom: 4px; background: var(--accent); }
+
+.panel, .launch-countdown, .profile-history {
+  background: var(--surface);
+  border-color: var(--line);
+  border-radius: var(--panel-radius);
+  box-shadow: none;
+}
+.panel { padding: var(--panel-pad); }
+.new-page { padding-bottom: clamp(28px, 5vw, 64px); }
+.new-page .page-heading { padding-block: clamp(28px, 5vw, 64px) 24px; }
+.new-page .page-heading h1, .affiliate-heading h1, .cashier-intro h1 {
+  font-size: clamp(2rem, 4.2vw, 3.75rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -.045em;
+}
+.new-page .page-heading p, .new-page .secondary {
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+.new-page .page-banner {
+  padding: var(--panel-pad);
+  min-height: clamp(10rem, 16vw, 14rem);
+  border-color: var(--line);
+  border-radius: var(--panel-radius);
+}
+.new-page h2 { font-weight: 600; line-height: 1.18; letter-spacing: -.025em; }
+.page-eyebrow, .launch-phase, .micro {
+  font-size: .75rem;
+  letter-spacing: .02em;
+  text-transform: none;
+}
+.page-eyebrow span { width: 12px; margin-inline-end: 6px; }
+.page-eyebrow { color: var(--muted); }
+.home-tier-rate, .tier-rate, .launch-clock strong, .wallet-summary strong,
+.profile-next-credit [role="timer"], .affiliate-metrics {
+  font-variant-numeric: tabular-nums;
+}
+
+.primary, .muted-button, .field, .profile-trigger, .wallet-close,
+.wallet-asset, .wallet-dialog .wallet-tabs button {
+  border-radius: var(--control-radius);
+}
+.primary, .muted-button, .field, .profile-trigger, .wallet-close,
+.support-dialog-body .primary, .support-dialog-body .muted-button {
+  min-height: 44px;
+}
+.primary { color: #081924; background: var(--accent); box-shadow: none; }
+.primary:not(:disabled):hover { color: #081924; background: #a9f2fc; filter: none; }
+.muted-button { background: var(--surface); border-color: #3c536c; color: var(--ink); }
+.muted-button:not(:disabled):hover { border-color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.field, .new-page .field, .wallet-dialog .field, .support-dialog .field {
+  max-width: 100%;
+  background: var(--inset);
+  border-color: #3c536c;
+  color: var(--ink);
+  font-size: 1rem;
+}
+.auth-panel { width: min(100%, 30rem); }
+.auth-panel form { gap: 16px; }
+.auth-panel .field { width: 100%; }
+.questions { max-width: 54rem; }
+.questions summary { min-height: 44px; padding-block: 12px; line-height: 1.45; cursor: pointer; }
+.questions details[open] summary { color: var(--accent); }
+.questions details p { max-width: 70ch; line-height: 1.6; }
+
+.home-page { padding-top: clamp(20px, 3vw, 40px); }
+.launch-hero {
+  min-height: clamp(22rem, 31vw, 28rem);
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  background: var(--surface);
+  border-color: var(--line);
+  border-radius: var(--panel-radius);
+  box-shadow: none;
+}
+.launch-copy { padding: clamp(20px, 3.8vw, 52px); }
+.launch-copy h1 {
+  font-size: clamp(2.25rem, 4.3vw, 4.25rem);
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: -.055em;
+}
+.launch-copy h1 em { color: var(--accent); }
+.launch-copy > p:not(.page-eyebrow) { color: var(--muted); }
+.launch-visual { margin: 0; }
+.launch-visual::after { background: linear-gradient(90deg, #111e2e70, transparent 35%); }
+.launch-visual img { object-position: center; }
+.visual-frame, .visual-sweep { display: none; }
+.launch-countdown { margin-top: 16px; padding: var(--panel-pad); }
+.launch-clock { gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: var(--control-radius); overflow: hidden; }
+.launch-clock > div { background: var(--inset); border: 0; border-radius: 0; padding-block: 12px; }
+.launch-clock strong { color: var(--accent); }
+.home-section { margin-block: clamp(36px, 5vw, 64px); }
+.home-tier, .home-tier:nth-child(n) { border-top: 1px solid var(--line); }
+.home-tier-rate { color: var(--accent); font-weight: 600; letter-spacing: -.055em; }
+.home-tier dl div { border-color: var(--line); }
+.feature-banner { border-color: var(--line); border-radius: var(--panel-radius); }
+.feature-banner:hover { transform: none; }
+.feature-banner img, .launch-visual img, .orbital-image img, .ref-orbit,
+[data-reveal].entered, .new-page .page-heading { animation: none; }
+.feature-referrals img { filter: saturate(.8); }
+.feature-referrals::before { background: linear-gradient(90deg, #081526ef, #08152645 80%), linear-gradient(0deg, #091526e8, transparent 88%); }
+
+.profile-history { padding: var(--panel-pad); border: 1px solid var(--line); }
+.profile-card, .wallet-summary, .wallet-head, .affiliate-copy-row,
+.manual-record, .receipt-stack > * { min-width: 0; }
+.manual-record, .receipt-stack, .wallet-details, .affiliate-copy-row { overflow-wrap: anywhere; }
+.manual-tabs, .admin-filters { gap: 8px; }
+.manual-tabs button, .admin-filters button { min-height: 44px; white-space: normal; }
+.manual-view > section, .manual-view > div, .manual-summary,
+.cashier-intro, .affiliate-panel-head {
+  border-color: var(--line);
+  border-radius: var(--panel-radius);
+}
+.manual-view > section, .manual-view > div { background: var(--surface); }
+.manual-form { gap: 12px; }
+.manual-field { gap: 6px; }
+.affiliate-plot, .wallet-dialog .wallet-details, .wallet-summary, .manual-summary {
+  background: var(--inset);
+  border-color: var(--line);
+}
+dialog.wallet-dialog, dialog.support-dialog {
+  max-height: calc(100dvh - 24px);
+  border: 1px solid var(--line);
+  border-radius: var(--panel-radius);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: 0 16px 48px #03070d80;
+}
+dialog::backdrop { background: #030810c9; }
+.wallet-dialog .wallet-content, .support-dialog-body { overscroll-behavior: contain; }
+dialog .wallet-close, dialog .support-close { min-width: 44px; min-height: 44px; }
+dialog .support-dialog-head { background: var(--inset); border-color: var(--line); }
+body .support-launcher { box-shadow: none; }
+.wallet-trigger { min-height: 44px; }
+.wallet-cashier-footer { border-color: var(--line); }
+.wallet-head h2 { margin-block: 0; }
+.wallet-asset { min-height: 56px; }
+footer { border-color: var(--line); }
+
+@media (max-width: 850px) {
+  .top-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    padding-top: 8px;
+  }
+  .top-inner > nav {
+    grid-area: 2 / 1 / 3 / -1;
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+    justify-content: start;
+    overflow-x: auto;
+  }
+  .top-inner > .account-nav, .top .connect { grid-area: 1 / 2; }
+}
+@media (max-width: 700px) {
+  .new-page .page-banner { padding-bottom: 7.5rem; }
+  .page-banner::before { height: 8.5rem; }
+  .top nav { gap: 6px; }
+  .top nav a, .top nav button { font-size: .8125rem; }
+  .launch-hero { grid-template-columns: minmax(0, 1fr); }
+  .launch-copy { padding: 24px 20px; }
+  .launch-visual { min-height: clamp(9rem, 43vw, 15rem); }
+  .launch-visual::after { background: linear-gradient(#111e2e55, transparent 32%); }
+  .launch-countdown { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .launch-countdown time { margin-left: 0; }
+  .home-section-head { flex-wrap: wrap; gap: 8px; }
+  .home-section-head > a { text-align: start; }
+  .home-tier-grid, .feature-grid, .home-bottom { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+}
+@media (max-width: 380px) {
+  .top .brand { font-size: 19px; }
+  .top .brand img { width: 26px; }
+  .top .account-nav { gap: 4px; }
+  .top .account-nav a { padding-inline: 8px; }
+  .launch-copy h1 { font-size: clamp(1.9rem, 9.4vw, 2.25rem); }
+  .launch-actions { gap: 8px; }
+  .wallet-head { flex-wrap: wrap; }
+}
