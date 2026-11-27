@@ -2,7 +2,7 @@ import {DatabaseSync} from 'node:sqlite';
 
 const schemaQuery="SELECT name,sql FROM sqlite_schema WHERE sql IS NOT NULL AND name NOT LIKE 'sqlite_%'";
 const migrationRecord='INSERT OR IGNORE INTO turso_migrations (name) VALUES (?)';
-const seedTables=new Set(['manual_policy','activity_opening_totals','platform_launch']);
+const seedTables=new Set(['manual_policy','activity_opening_totals','platform_launch','wallet_payday_policy','us_federal_holidays']);
 
 // Compare SQL tokens without changing quoted strings or ignoring constraints.
 const fingerprint=sql=>JSON.stringify((sql.match(/'(?:''|[^'])*'|"(?:""|[^"])*"|[\w]+|[^\s]/g)||[])
@@ -64,7 +64,7 @@ export async function reconcileTursoSchema(client,migrations){
   const seeded=new Set();
   for(const table of seedTables){
    if(!current.has(table))continue;
-   const {rows:records}=await transaction.execute('SELECT 1 FROM '+table+' WHERE id=1');
+   const {rows:records}=await transaction.execute('SELECT 1 FROM '+table+(table==='us_federal_holidays'?' LIMIT 1':' WHERE id=1'));
    if(records.length)seeded.add(table);
   }
   const missing=[];

@@ -2,6 +2,10 @@
 
 12x12 accepts manual cryptocurrency deposits into a USD wallet. After the cashier approves the deposit, the user can invest from that balance. Existing Base vault receipts and their separate settlement flow remain supported.
 
+## Wallet paydays
+
+Starting with migration 0016, remaining wallet investment and recurring referral credits use eligible UTC weekdays. Saturday, Sunday, and observed nationwide U.S. federal holidays do not count toward a plan’s 12, 15, or 20 credits. Credits keep their scheduled UTC time of day. Earlier credits remain on the original schedule, and a separately returned principal matures with the final credit. The calendar table includes recurring nationwide holidays through 2199. The homepage reads upcoming dates from that same table. Existing Base vault contracts and cashier withdrawal processing are unchanged.
+
 ## Run on your computer or Render
 
 Use Node 22.13 or newer. From the extracted project folder:

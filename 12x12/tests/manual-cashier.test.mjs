@@ -407,11 +407,13 @@ test('wallet investing uses approved balance without requiring operator prefundi
  assert.throws(()=>t.raw('DELETE FROM wallet_plans').run(),/immutable investment/);
 });
 
-test('each tier credits at exact 24-hour intervals and the profile advances the next credit',async()=>{
+test('wallet plans skip weekends and observed holidays without reducing total credits',async()=>{
  const t=setup({controlDbTime:true});
- const opened=1_795_500_000;
+ const opened=Date.parse('2026-12-23T12:00:00Z')/1000;
  const tomorrow=opened+86400;
+ const monday=Date.parse('2026-12-28T12:00:00Z')/1000;
  const midnight=(Math.floor(opened/86400)+1)*86400;
+ t.tick(opened-1_795_500_000);
  await t.configure();
  await t.approve(await t.deposit('262'));
  const legacyInvestor='legacy-investor';
@@ -449,18 +451,59 @@ test('each tier credits at exact 24-hour intervals and the profile advances the 
  assert.deepEqual(await readCredits(),expected);
  const afterFirst=await t.call('profile');
  assert.equal(afterFirst.balance,4894);
- assert.deepEqual(afterFirst.nextCredit,{at:tomorrow+86400,amount:4894,now:tomorrow});
+ assert.deepEqual(afterFirst.nextCredit,{at:monday,amount:4894,now:tomorrow});
+ t.tick(86400);
+ assert.equal((await t.call('wallet')).balance,4894);
+ t.tick(2*86400);
+ assert.equal((await t.call('wallet')).balance,4894);
+ assert.equal((await readCredits()).length,3);
  t.tick(86400);
  assert.equal((await t.call('wallet')).balance,9788);
  assert.equal((await readCredits()).length,6);
- t.tick(18*86400);
+ t.tick(35*86400);
  assert.equal((await t.call('profile')).nextCredit,null);
  assert.equal((await t.call('wallet')).balance,26200+12*144+15*750+20*4000);
 });
 
+test('a plan opened before an observed holiday waits until the following payday',async()=>{
+ const t=setup({controlDbTime:true});
+ const opened=Date.parse('2027-07-02T09:15:00Z')/1000;
+ const tuesday=Date.parse('2027-07-06T09:15:00Z')/1000;
+ t.tick(opened-1_795_500_000);
+ await t.configure();
+ await t.approve(await t.deposit('12'));
+ const result=await t.call('invest',{plan:1,amount:'12',id:crypto.randomUUID()});
+ assert.equal(result.firstCreditAt,tuesday);
+ t.tick(tuesday-opened-1);
+ assert.equal((await t.call('wallet')).balance,0);
+ t.tick(1);
+ assert.equal((await t.call('wallet')).balance,144);
+});
+
+test('the payday cutover preserves credits already earned under the prior schedule',async()=>{
+ const t=setup({controlDbTime:true});
+ const cutoff=Date.parse('2026-12-26T13:00:00Z')/1000;
+ const opened=cutoff-2*86400;
+ t.raw('UPDATE wallet_payday_policy SET starts_at=?',cutoff).run();
+ t.tick(opened-1_795_500_000);
+ await t.configure();
+ await t.approve(await t.deposit('12'));
+ await t.call('invest',{plan:1,amount:'12',id:crypto.randomUUID()});
+ t.tick(2*86400);
+ assert.equal((await t.call('wallet')).balance,288);
+ t.tick(86400);
+ const profile=await t.call('profile');
+ assert.equal(profile.balance,288);
+ assert.equal(profile.nextCredit.at,cutoff+2*86400);
+ assert.equal((await t.call('profile/history')).rows.filter(row=>row.kind==='plan payout').length,2);
+ assert.equal(t.raw("SELECT day FROM us_federal_holidays WHERE day='2027-07-05'").first().day,'2027-07-05');
+ assert.equal(t.raw("SELECT day FROM us_federal_holidays WHERE day='2027-12-24'").first().day,'2027-12-24');
+});
+
 test('overlapping investments keep their own payment times',async()=>{
  const t=setup({controlDbTime:true});
- const opened=1_795_500_000;
+ const opened=Date.parse('2026-11-30T12:00:00Z')/1000;
+ t.tick(opened-1_795_500_000);
  await t.configure();
  await t.approve(await t.deposit('24'));
  const invest=()=>t.call('invest',{plan:1,amount:'12',id:crypto.randomUUID()});
@@ -481,8 +524,7 @@ test('overlapping investments keep their own payment times',async()=>{
 
 test('profile name stays private and referrals credit on each new plan interval after the first-investment commission',async()=>{
  const t=setup({controlDbTime:true});
- const now=Math.floor(Date.now()/1000);
- const today=Math.floor(now/86400)*86400;
+ const today=Date.parse('2026-12-01T00:00:00Z')/1000;
  t.tick(today-1-1_795_500_000);
  await t.configure();
  assert.equal((await t.call('profile',null,null)).code,401);
@@ -526,7 +568,7 @@ test('profile name stays private and referrals credit on each new plan interval 
  assert.ok(rows.filter(row=>row.kind==='daily referral reward').every(row=>row.amount===25&&row.created===today+86399));
  assert.equal((await t.call('profile/history')).rows.filter(row=>row.kind==='plan payout').length,2);
  assert.equal((await t.call('profile/history',null,'another-user')).rows.length,0);
- t.tick(15*86400);
+ t.tick(20*86400);
  const ended=await t.call('affiliate',null,other);
  assert.equal(ended.activePlans,0);
  assert.equal(ended.totalDaily,600);

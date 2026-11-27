@@ -14,7 +14,7 @@ if ($('calc-tier')) {
   input.value=Math.max(min,Math.min(max,Number(input.value))).toFixed(2);
   $('range-min').textContent='$'+min.toLocaleString('en-US')+' minimum';
   $('range-max').textContent='$'+max.toLocaleString('en-US')+' maximum';
-  $('term-label').textContent=days+'-day credits';
+  $('term-label').textContent=days+' paydays';
   update();
  };
  input.oninput=update;

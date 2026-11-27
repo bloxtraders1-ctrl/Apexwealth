@@ -497,3 +497,8 @@ footer > a:not(.footer-brand):hover { color: var(--accent); }
     to { background: var(--surface); outline-color: transparent; }
   }
 }
+
+.payday-calendar { margin-block: 24px; }
+.payday-calendar ul { list-style: none; margin: 0; padding: 0; }
+.payday-calendar li { display: flex; flex-wrap: wrap; gap: 4px 20px; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--line); }
+.payday-calendar time { font-variant-numeric: tabular-nums; }

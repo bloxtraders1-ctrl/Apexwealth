@@ -105,7 +105,7 @@ function planTerms(tier,wallet,networks){
  const feeText=fees.length?cents(low)+(high===low?'':'–'+cents(high)+' depending on network'):'No active withdrawal network';
  const terms=element('section',null,'invest-terms');
  terms.append(element('h3','If opened today'),makeDetails([
-  ['Daily credits','Every 24 hours after confirmation for '+tier.days+' days'],
+  ['Daily credits','One per eligible UTC weekday for '+tier.days+' paydays, excluding observed U.S. federal holidays'],
   ['Invested principal',access.separate?'Released after '+tier.days+' days':'Included in scheduled credits'],
   ['Daily withdrawal cap',(wallet.daily_bps/100)+'% of recorded invested principal, including fees'],
   ['Withdrawal allowance today',cents(wallet.daily_remaining)],
