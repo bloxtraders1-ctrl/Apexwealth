@@ -54,7 +54,7 @@ Wallet investment credits use the invested amount. The cashier’s configured da
 ## Investor flow
 
 - Open the wallet to request a cryptocurrency deposit. Send the quoted amount and submit the transaction hash. Funds become available in USD after cashier approval.
-- Select **Invest** on an eligible plan and confirm the USD amount. The wallet deducts it once and reserves plan credits and commissions from the site's funded reward reserve. Daily credits begin at the next midnight UTC.
+- Select **Invest** on an eligible plan and confirm the USD amount. The wallet deducts it once and reserves plan credits and commissions from the site's funded reward reserve. New wallet plans credit every 24 hours from confirmation. Profile shows a countdown to the next credit. Existing plans keep their original schedule.
 - Visit **Referrals** to copy your link after your first investment. You earn 12% of a direct referral’s first funded investment and 1% of each referred plan’s investment amount every day it runs.
 - Open the profile icon next to the wallet to edit your account name and review all your deposit, withdrawal, investment and credit history. Existing Base receipt and withdrawal requests are listed here too.
 - Open the wallet to submit a withdrawal and choose the receiving address for that request. Existing Base vault withdrawals and refund requests can be opened from the corresponding record in Profile. Previous wallet-connected positions can still be accessed at /legacy.html#portfolio.

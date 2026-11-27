@@ -49,5 +49,8 @@ export function localDB(file){
  if(!db.prepare("SELECT 1 FROM sqlite_master WHERE name='platform_launch'").get()){
   db.exec('BEGIN;'+readFileSync('drizzle/0014_launch_and_wallet_credits.sql','utf8')+'COMMIT;');
  }
+ if(!db.prepare("SELECT 1 FROM sqlite_master WHERE name='wallet_plan_schedule'").get()){
+  db.exec('BEGIN;'+readFileSync('drizzle/0015_investment_credit_intervals.sql','utf8')+'COMMIT;');
+ }
  return {prepare(s){const st=db.prepare(s);return {bind(...a){return {first:()=>st.get(...a),all:()=>({results:st.all(...a)}),run:()=>({meta:{changes:st.run(...a).changes}})};}};}};
 }

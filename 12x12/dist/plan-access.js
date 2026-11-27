@@ -1,5 +1,5 @@
 import {element,link} from './cashier-api.js';
-import {cashier,cents,field,button,bindForm,submitButton,notice,makeDetails} from './manual-ui.js';
+import {cashier,cents,when,field,button,bindForm,submitButton,notice,makeDetails} from './manual-ui.js';
 import {tiers} from './tiers.js';
 
 const dialog=element('dialog',null,'wallet-dialog invest-dialog');
@@ -100,15 +100,13 @@ async function open(tier){
 }
 
 function planTerms(tier,wallet,networks){
- const formatter=new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});
- const date=day=>formatter.format(new Date((access.startDay+day)*86400000));
  const fees=networks.options.filter(option=>option.withdrawal_enabled).map(option=>option.withdrawal_fee);
  const low=Math.min(...fees),high=Math.max(...fees);
  const feeText=fees.length?cents(low)+(high===low?'':'–'+cents(high)+' depending on network'):'No active withdrawal network';
  const terms=element('section',null,'invest-terms');
  terms.append(element('h3','If opened today'),makeDetails([
-  ['Daily credits',date(1)+' to '+date(tier.days)+' at 00:00 UTC'],
-  ['Invested principal',access.separate?'Released on '+date(tier.days):'Included in scheduled credits'],
+  ['Daily credits','Every 24 hours after confirmation for '+tier.days+' days'],
+  ['Invested principal',access.separate?'Released after '+tier.days+' days':'Included in scheduled credits'],
   ['Daily withdrawal cap',(wallet.daily_bps/100)+'% of recorded invested principal, including fees'],
   ['Withdrawal allowance today',cents(wallet.daily_remaining)],
   ['Plan fee',cents(0)],['Withdrawal fee',feeText]
@@ -132,9 +130,10 @@ async function submitInvestment(payload,key){
   const result=await cashier('invest',payload);
   sessionStorage.removeItem(key);
   window.dispatchEvent(new Event('apex-wallet-balance-changed'));
+  const schedule=Number.isSafeInteger(result.firstCreditAt)?' First credit: '+when(result.firstCreditAt)+' (local time).':'';
   panel.replaceChildren(element('h3','Investment opened'),
-   element('p',cents(result.amount)+' invested in Plan '+result.plan+'. Your first daily credit is scheduled for 00:00 UTC.','secondary'),
-   link('/profile#history','View investment history','primary'));
+   element('p',cents(result.amount)+' invested in Plan '+result.plan+'.'+schedule,'secondary'),
+   link('/profile','View next credit','primary'));
  }catch(error){
   if(error.status>=400&&error.status<500)sessionStorage.removeItem(key);
   else if(dialog.open&&!panel.querySelector('[data-retry]')){

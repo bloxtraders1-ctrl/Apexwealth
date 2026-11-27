@@ -34,15 +34,16 @@ test('startup reconciles a missing migration history without recreating receipts
  const sqlite=createClient({url:'file::memory:'});
  try{
   const directory=new URL('../drizzle/',import.meta.url);
-  const files=(await readdir(directory)).filter(name=>/^00(?:0\d|1[0-3])_.*\.sql$/.test(name)).sort();
+  const files=(await readdir(directory)).filter(name=>/^00(?:0\d|1[0-4])_.*\.sql$/.test(name)).sort();
   for(const file of files)await sqlite.executeMultiple(await readFile(new URL(file,directory),'utf8'));
+  const {rows:[previousLaunch]}=await sqlite.execute('SELECT launch_at FROM platform_launch');
   await sqlite.execute('CREATE TABLE turso_migrations (name TEXT PRIMARY KEY)');
   await sqlite.execute("INSERT INTO login_accounts (username,id,salt,verifier,email) VALUES ('wal','u1','salt','digest','wal@example.test')");
   await sqlite.execute("UPDATE manual_policy SET daily_bps=1000 WHERE id=1");
   await sqlite.execute('DROP INDEX receipt_user');
   const db=await prepareTursoDatabase(sqlite);
   const launch=await db.prepare('SELECT launch_at FROM platform_launch').bind().first();
-  assert.ok(launch.launch_at>0);
+  assert.deepEqual(launch,previousLaunch);
   assert.equal((await db.prepare('SELECT COUNT(*) AS total FROM turso_migrations').bind().first()).total,files.length+1);
   assert.ok(await db.prepare("SELECT name FROM sqlite_schema WHERE name='receipt_user'").bind().first());
   assert.equal((await db.prepare("SELECT email FROM login_accounts WHERE id='u1'").bind().first()).email,'wal@example.test');

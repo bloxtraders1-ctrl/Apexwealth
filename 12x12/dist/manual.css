@@ -129,3 +129,7 @@
  .wallet-cashier-footer{padding-inline:.85rem}
  .wallet-cashier-footer-actions .primary{flex:1}
 }
+.profile-next-credit{display:grid;grid-template-columns:1fr;gap:.2rem;white-space:normal}
+.profile-next-credit[hidden]{display:none}
+.profile-next-credit [role=timer]{font-variant-numeric:tabular-nums;font-size:1.5rem}
+.profile-next-credit time{font-size:.8rem}

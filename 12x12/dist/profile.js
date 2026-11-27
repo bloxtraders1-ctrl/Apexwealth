@@ -14,6 +14,15 @@ const activityLabels={
 };
 
 const balance=element('strong');
+const creditPanel=element('div',null,'wallet-summary profile-next-credit');
+const creditLabel=element('span');
+const creditTimer=element('strong');
+creditTimer.setAttribute('role','timer');
+creditTimer.setAttribute('aria-label','Time until next wallet credit');
+const creditDate=element('time',null,'secondary');
+creditPanel.append(creditLabel,creditTimer,creditDate);
+creditPanel.hidden=true;
+let creditTimeout;
 let options=[];
 const next='?next='+encodeURIComponent('/profile');
 async function start(){
@@ -51,12 +60,46 @@ async function start(){
  if(me.admin)info.append(link('/admin/cashier','Open admin cashier'));
  const wallet=element('div',null,'wallet-summary');
  wallet.append(element('span','Available USD'),balance);
- info.append(wallet);
+ info.append(wallet,creditPanel);
+ showNextCredit(account.nextCredit);
  header.append(form,info);
  accountBox.replaceChildren(header);
  section.hidden=false;
  await load(0);
  if(location.hash==='#history')section.scrollIntoView();
+}
+
+function showNextCredit(credit){
+ clearTimeout(creditTimeout);
+ creditPanel.hidden=!credit;
+ if(!credit)return;
+ creditLabel.textContent='Next daily wallet credit · '+cents(credit.amount);
+ creditDate.textContent=when(credit.at);
+ creditDate.dateTime=new Date(credit.at*1000).toISOString();
+ const deadline=performance.now()+(credit.at-credit.now)*1000;
+ const tick=()=>{
+  const remaining=Math.ceil((deadline-performance.now())/1000);
+  if(remaining<=0){
+   creditTimer.textContent='Updating…';
+   void refreshCredit();
+   return;
+  }
+  const parts=[Math.floor(remaining/3600),Math.floor(remaining/60)%60,remaining%60];
+  creditTimer.textContent=parts.map(part=>String(part).padStart(2,'0')).join(':');
+  creditTimeout=setTimeout(tick,1000);
+ };
+ tick();
+}
+
+async function refreshCredit(){
+ try{
+  const account=await cashier('profile');
+  balance.textContent=cents(account.balance);
+  showNextCredit(account.nextCredit);
+  window.dispatchEvent(new Event('apex-wallet-balance-changed'));
+ }catch{
+  creditTimeout=setTimeout(refreshCredit,5000);
+ }
 }
 
 function requestTimeline(row){

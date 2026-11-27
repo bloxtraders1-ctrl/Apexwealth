@@ -1,5 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readdirSync,readFileSync} from 'node:fs';
+import {DatabaseSync} from 'node:sqlite';
 import {Wallet} from 'ethers';
 import {localDB} from '../gateway/local-db.mjs';
 import {manualCashier} from '../gateway/manual-cashier.mjs';
@@ -8,9 +10,21 @@ const admin='admin',investor='investor',other='other';
 const address=Wallet.createRandom().address;
 const destination=Wallet.createRandom().address;
 const hash=byte=>'0x'+byte.repeat(64);
-function setup(){
- const DB=localDB(':memory:'),env={DB,APEX_CASHIER_ADMIN_IDS:admin};
+function setup({controlDbTime=false}={}){
  let now=1_795_500_000;
+ const sqlite=controlDbTime?new DatabaseSync(':memory:'):null;
+ if(sqlite){
+  sqlite.function('unixepoch',()=>now);
+  for(const file of readdirSync('drizzle').filter(name=>name.endsWith('.sql')).sort()){
+   sqlite.exec(readFileSync('drizzle/'+file,'utf8'));
+  }
+ }
+ const DB=sqlite?{prepare(sql){
+  const statement=sqlite.prepare(sql);
+  return {bind(...args){return {first:()=>statement.get(...args),all:()=>({results:statement.all(...args)}),
+   run:()=>({meta:{changes:statement.run(...args).changes}})};}};
+ }}:localDB(':memory:');
+ const env={DB,APEX_CASHIER_ADMIN_IDS:admin};
  let interrupted;
  env.DB={prepare(statement){
   const st=DB.prepare(statement);
@@ -393,34 +407,80 @@ test('wallet investing uses approved balance without requiring operator prefundi
  assert.throws(()=>t.raw('DELETE FROM wallet_plans').run(),/immutable investment/);
 });
 
-test('all three funded plans credit their daily amounts at midnight UTC without operator prefunding',async()=>{
- const t=setup();
- const midnight=Math.floor(Date.now()/86400000)*86400;
- t.tick(midnight-1-1_795_500_000);
+test('each tier credits at exact 24-hour intervals and the profile advances the next credit',async()=>{
+ const t=setup({controlDbTime:true});
+ const opened=1_795_500_000;
+ const tomorrow=opened+86400;
+ const midnight=(Math.floor(opened/86400)+1)*86400;
  await t.configure();
  await t.approve(await t.deposit('262'));
+ const legacyInvestor='legacy-investor';
+ await t.approve(await t.deposit('12',hash('2'),legacyInvestor));
+ t.raw(`INSERT INTO wallet_plans(id,user_id,plan_id,amount,rate,days,daily,separate,created,start_day,sponsor,first_reward,daily_reward,reserve)
+  VALUES ('legacy-order',?,1,1200,12,12,144,1,?,?,NULL,0,0,1728)`,legacyInvestor,opened,Math.floor(opened/86400)).run();
+ assert.deepEqual((await t.call('profile',null,legacyInvestor)).nextCredit,{at:midnight,amount:144,now:opened});
  const addLegacyReferral=(id,owner,referrer)=>t.raw(`INSERT INTO receipts
   (id,user_id,payout,amount,referrer,receiver,factory,vault,created,stage)
-  VALUES(?,?,?,12000000,?,?,'factory','vault',?,'active')`,id,owner,destination,referrer,id,midnight-2).run();
+  VALUES(?,?,?,12000000,?,?,'factory','vault',?,'active')`,id,owner,destination,referrer,id,opened-2).run();
  addLegacyReferral('sponsor-address',investor,'unattributed');
  for(let i=0;i<10;i++)addLegacyReferral('referral-'+i,'referral-'+i,'sponsor-address');
  assert.deepEqual((await t.call('invest')).availablePlans,[1,2,3]);
  for(const [plan,amount] of [[1,'12'],[2,'50'],[3,'200']]){
-  assert.equal((await t.call('invest',{plan,amount,id:crypto.randomUUID()})).code,200);
+  const result=await t.call('invest',{plan,amount,id:crypto.randomUUID()});
+  assert.equal(result.code,200);
+  assert.equal(result.firstCreditAt,tomorrow);
  }
  assert.equal(t.raw('SELECT COUNT(*) AS n FROM wallet_reward_funds').first().n,0);
  const readCredits=async()=>{
   const {rows}=await t.call('profile/history');
   return rows.filter(row=>row.kind==='plan payout').map(({plan,amount,created})=>[plan,amount,created]).sort((a,b)=>a[0]-b[0]);
  };
- const expected=[[1,144,midnight],[2,750,midnight],[3,4000,midnight]];
+ t.tick(midnight-opened);
+ const preCredit=await t.call('profile');
+ assert.equal(preCredit.balance,0);
+ assert.equal((await t.call('profile',null,legacyInvestor)).balance,144);
+ assert.deepEqual(preCredit.nextCredit,{at:tomorrow,amount:4894,now:midnight});
+ assert.equal((await t.call('profile',null,other)).nextCredit,null);
+ assert.deepEqual(await readCredits(),[]);
+ t.tick(tomorrow-midnight-1);
+ assert.equal((await t.call('wallet')).balance,0);
+ t.tick(1);
+ const expected=[[1,144,tomorrow],[2,750,tomorrow],[3,4000,tomorrow]];
  assert.deepEqual(await readCredits(),expected);
- assert.deepEqual(await readCredits(),expected);
- assert.equal((await t.call('wallet')).balance,4894);
+ const afterFirst=await t.call('profile');
+ assert.equal(afterFirst.balance,4894);
+ assert.deepEqual(afterFirst.nextCredit,{at:tomorrow+86400,amount:4894,now:tomorrow});
+ t.tick(86400);
+ assert.equal((await t.call('wallet')).balance,9788);
+ assert.equal((await readCredits()).length,6);
+ t.tick(18*86400);
+ assert.equal((await t.call('profile')).nextCredit,null);
+ assert.equal((await t.call('wallet')).balance,26200+12*144+15*750+20*4000);
 });
 
-test('profile name stays private and referral history includes each UTC credit with one first-investment commission',async()=>{
- const t=setup();
+test('overlapping investments keep their own payment times',async()=>{
+ const t=setup({controlDbTime:true});
+ const opened=1_795_500_000;
+ await t.configure();
+ await t.approve(await t.deposit('24'));
+ const invest=()=>t.call('invest',{plan:1,amount:'12',id:crypto.randomUUID()});
+ const first=await invest();
+ t.tick(7200);
+ const second=await invest();
+ assert.equal(first.firstCreditAt,opened+86400);
+ assert.equal(second.firstCreditAt,opened+86400+7200);
+ t.tick(86400-7200);
+ const next=await t.call('profile');
+ assert.equal(next.balance,144);
+ assert.deepEqual(next.nextCredit,{at:second.firstCreditAt,amount:144,now:first.firstCreditAt});
+ t.tick(7200);
+ const after=await t.call('profile');
+ assert.equal(after.balance,288);
+ assert.deepEqual(after.nextCredit,{at:first.firstCreditAt+86400,amount:144,now:second.firstCreditAt});
+});
+
+test('profile name stays private and referrals credit on each new plan interval after the first-investment commission',async()=>{
+ const t=setup({controlDbTime:true});
  const now=Math.floor(Date.now()/1000);
  const today=Math.floor(now/86400)*86400;
  t.tick(today-1-1_795_500_000);
@@ -450,23 +510,27 @@ test('profile name stays private and referral history includes each UTC credit w
  assert.deepEqual(firstDay.days.at(-1),{day:today/86400-1,first:300,daily:0});
  t.tick(1);
  const afterMidnight=await t.call('affiliate',null,other);
- assert.equal(afterMidnight.totalDaily,50);
- assert.deepEqual(afterMidnight.days.at(-1),{day:today/86400,first:0,daily:50});
+ assert.equal(afterMidnight.totalDaily,0);
+ assert.deepEqual(afterMidnight.days.at(-1),{day:today/86400,first:0,daily:0});
+ t.tick(86399);
+ const firstInterval=await t.call('affiliate',null,other);
+ assert.equal(firstInterval.totalDaily,50);
+ assert.deepEqual(firstInterval.days.at(-1),{day:today/86400,first:0,daily:50});
  const anotherAffiliate=await t.call('affiliate?user='+other,null,'another-user');
  assert.equal(anotherAffiliate.funded,0);
  assert.equal(anotherAffiliate.totalFirst,0);
+ const {rows}=await t.call('profile/history',null,other);
+ assert.equal(rows.filter(row=>row.kind==='first referral reward').length,1);
+ assert.equal(rows.find(row=>row.kind==='first referral reward').amount,300);
+ assert.equal(rows.filter(row=>row.kind==='daily referral reward').length,2);
+ assert.ok(rows.filter(row=>row.kind==='daily referral reward').every(row=>row.amount===25&&row.created===today+86399));
+ assert.equal((await t.call('profile/history')).rows.filter(row=>row.kind==='plan payout').length,2);
+ assert.equal((await t.call('profile/history',null,'another-user')).rows.length,0);
  t.tick(15*86400);
  const ended=await t.call('affiliate',null,other);
  assert.equal(ended.activePlans,0);
  assert.equal(ended.totalDaily,600);
  assert.equal(ended.days.reduce((total,day)=>total+day.daily,0),600);
- const {rows}=await t.call('profile/history',null,other);
- assert.equal(rows.filter(row=>row.kind==='first referral reward').length,1);
- assert.equal(rows.find(row=>row.kind==='first referral reward').amount,300);
- assert.equal(rows.filter(row=>row.kind==='daily referral reward').length,2);
- assert.ok(rows.filter(row=>row.kind==='daily referral reward').every(row=>row.amount===25&&row.created===today));
- assert.equal((await t.call('profile/history')).rows.filter(row=>row.kind==='plan payout').length,2);
- assert.equal((await t.call('profile/history',null,'another-user')).rows.length,0);
 });
 
 test('deposit rejection records a reason and the cashier without crediting',async()=>{

@@ -50,10 +50,21 @@ export function walletAccounts({read,all,run,user,now,separate}){
    return {available,wallet,minimum:planCredits(tiers[0].min*100,tiers[0],separate).liability};
   },
   async profile(){
-   const settings=await read('SELECT display_name FROM wallet_profiles WHERE user_id=?',user);
-   const login=await read('SELECT username,email FROM login_accounts WHERE id=?',user);
+   const [settings,login,fundedReferrals,eligible,snapshot]=await Promise.all([
+    read('SELECT display_name FROM wallet_profiles WHERE user_id=?',user),
+    read('SELECT username,email FROM login_accounts WHERE id=?',user),referrals(),referralEligible(user),
+    read(`WITH upcoming AS (
+     SELECT credit_start+(credits_due+1)*86400 AS at,SUM(daily) AS amount
+     FROM wallet_plan_schedule WHERE user_id=? AND credits_due<days GROUP BY at ORDER BY at LIMIT 1
+    )
+    SELECT upcoming.*,unixepoch() AS now,
+     (SELECT COALESCE(SUM(delta),0) FROM wallet_cash_journal WHERE user_id=?) AS balance
+    FROM (SELECT 1) LEFT JOIN upcoming ON 1=1`,user,user)
+   ]);
+   const {at,amount,now:observedAt,balance:wallet}=snapshot;
+   const nextCredit=at===null?null:{at,amount,now:observedAt};
    return {userId:user,name:settings?.display_name||(login?.username!==user?login?.username:null)||'12x12 member',
-    email:login?.email||null,balance:await balance(),referrals:await referrals(),referralEligible:await referralEligible(user)};
+    email:login?.email||null,balance:wallet,referrals:fundedReferrals,referralEligible:eligible,nextCredit};
   },
   async affiliateDashboard(){
    const today=Math.floor(now/86400);
@@ -62,19 +73,19 @@ export function walletAccounts({read,all,run,user,now,separate}){
     referralEligible(user),referrals(),
     read(`SELECT
      COALESCE(SUM(first_reward),0) AS first,
-     COALESCE(SUM(daily_reward*max(0,min(days,?-start_day))),0) AS daily,
-     COUNT(CASE WHEN ?<start_day+days THEN 1 END) AS active
-     FROM wallet_plans WHERE sponsor=? AND created<=?`,today,today,user,now),
+     COALESCE(SUM(daily_reward*credits_due),0) AS daily,
+     COUNT(CASE WHEN credits_due<days THEN 1 END) AS active
+     FROM wallet_plan_schedule WHERE sponsor=? AND created<=?`,user,now),
     all(`WITH RECURSIVE dates(day) AS (
      VALUES(?) UNION ALL SELECT day+1 FROM dates WHERE day<?
     ), sponsored AS (
-     SELECT start_day,days,first_reward,daily_reward FROM wallet_plans
-     WHERE sponsor=? AND created<=? AND start_day+days>=?
+     SELECT created/86400 AS opened_day,credit_start/86400 AS credit_day,credits_due,first_reward,daily_reward
+     FROM wallet_plan_schedule WHERE sponsor=? AND created<=? AND matures_at/86400>=?
     )
     SELECT dates.day,
-     COALESCE(SUM(CASE WHEN dates.day=start_day THEN first_reward ELSE 0 END),0) AS first,
-     COALESCE(SUM(CASE WHEN dates.day>start_day THEN daily_reward ELSE 0 END),0) AS daily
-    FROM dates LEFT JOIN sponsored ON dates.day BETWEEN start_day AND start_day+days
+     COALESCE(SUM(CASE WHEN dates.day=opened_day THEN first_reward ELSE 0 END),0) AS first,
+     COALESCE(SUM(CASE WHEN dates.day>credit_day THEN daily_reward ELSE 0 END),0) AS daily
+    FROM dates LEFT JOIN sponsored ON dates.day BETWEEN opened_day AND credit_day+credits_due
     GROUP BY dates.day ORDER BY dates.day`,firstDay,today,user,now,firstDay)
    ]);
    return {referralId:eligible?user:null,funded,totalFirst:totals.first,totalDaily:totals.daily,activePlans:totals.active,days};
@@ -101,7 +112,7 @@ export function walletAccounts({read,all,run,user,now,separate}){
    check(tier,'Choose an investment plan.');
    const amount=money(body.amount);
    check(amount>=tier.min*100&&amount<=tier.max*100,'Enter an amount within the plan limits.');
-   const lookup=()=>read('SELECT id,amount,plan_id AS plan FROM wallet_plans WHERE id=? AND user_id=?',id,user);
+   const lookup=()=>read('SELECT id,amount,plan_id AS plan,credit_start+86400 AS firstCreditAt FROM wallet_plan_schedule WHERE id=? AND user_id=?',id,user);
    const prior=await lookup();
    if(prior){
     check(prior.plan===tier.id&&prior.amount===amount,'This investment request was already used.',409);
@@ -110,9 +121,9 @@ export function walletAccounts({read,all,run,user,now,separate}){
    check(await referrals()>=tier.referrals,'This plan needs '+tier.referrals+' funded direct referrals.',409);
    const {sponsor,wasFunded}=await sponsorship(body);
    const {daily,firstReward,dailyReward,liability}=planCredits(amount,tier,separate,Boolean(sponsor),!wasFunded);
-   await run(`INSERT INTO wallet_plans(id,user_id,plan_id,amount,rate,days,daily,separate,created,start_day,sponsor,first_reward,daily_reward,reserve)
-    SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM wallet_plans WHERE id=?)`,
-    id,user,tier.id,amount,tier.rate,tier.days,daily,Number(separate),now,Math.floor(now/86400),sponsor,firstReward,dailyReward,liability,id);
+   await run(`INSERT INTO wallet_plans(id,user_id,plan_id,amount,rate,days,daily,separate,created,start_day,sponsor,first_reward,daily_reward,reserve,credit_anchor)
+    SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM wallet_plans WHERE id=?)`,
+    id,user,tier.id,amount,tier.rate,tier.days,daily,Number(separate),now,Math.floor(now/86400),sponsor,firstReward,dailyReward,liability,now,id);
    const created=await lookup();
    check(created?.plan===tier.id&&created.amount===amount,'This investment request was already used.',409);
    return created;
@@ -138,18 +149,18 @@ export function walletAccounts({read,all,run,user,now,separate}){
     UNION ALL SELECT w.id,'Base withdrawal',w.stage,w.amount/10000.0,w.created,'Base',COALESCE(w.destination,r.payout),
       NULL,0,'usdc-base',NULL,r.plan_id,NULL,NULL,NULL,NULL,NULL FROM withdrawals w JOIN receipts r ON r.id=w.receipt WHERE r.user_id=?
    ), plan_entries(id,kind,status,amount,created,network,address,tx,fee,asset,note,plan,crypto,rate_source,rate,confirmations,updated) AS (
-    SELECT id,'investment',CASE WHEN unixepoch()/86400>=start_day+days THEN 'matured' ELSE 'active' END,
-     amount,created,NULL,NULL,NULL,0,NULL,NULL,plan_id,NULL,NULL,NULL,NULL,NULL FROM wallet_plans WHERE user_id=?
+    SELECT id,'investment',CASE WHEN credits_due=days THEN 'matured' ELSE 'active' END,
+     amount,created,NULL,NULL,NULL,0,NULL,NULL,plan_id,NULL,NULL,NULL,NULL,NULL FROM wallet_plan_schedule WHERE user_id=?
     UNION ALL SELECT request_id,event,'credited',delta,created,NULL,NULL,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
      FROM wallet_cash_journal WHERE user_id=? AND event IN ('principal returned','reserve funding')
-    UNION ALL SELECT p.id,'plan payout','credited',p.daily,(p.start_day+d.n)*86400,NULL,NULL,NULL,0,NULL,NULL,
+    UNION ALL SELECT p.id,'plan payout','credited',p.daily,p.credit_start+d.n*86400,NULL,NULL,NULL,0,NULL,NULL,
       p.plan_id,NULL,NULL,NULL,NULL,NULL
-     FROM wallet_plans p JOIN days d ON d.n<=p.days AND p.start_day+d.n<=unixepoch()/86400 WHERE p.user_id=?
+     FROM wallet_plan_schedule p JOIN days d ON d.n<=p.credits_due WHERE p.user_id=?
     UNION ALL SELECT id,'first referral reward','credited',first_reward,created,NULL,NULL,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
      FROM wallet_plans WHERE sponsor=? AND first_reward>0
-    UNION ALL SELECT p.id,'daily referral reward','credited',p.daily_reward,(p.start_day+d.n)*86400,NULL,NULL,NULL,
-      0,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL FROM wallet_plans p
-     JOIN days d ON d.n<=p.days AND p.start_day+d.n<=unixepoch()/86400 WHERE p.sponsor=? AND p.daily_reward>0
+    UNION ALL SELECT p.id,'daily referral reward','credited',p.daily_reward,p.credit_start+d.n*86400,NULL,NULL,NULL,
+      0,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL FROM wallet_plan_schedule p
+     JOIN days d ON d.n<=p.credits_due WHERE p.sponsor=? AND p.daily_reward>0
    ) SELECT * FROM cash_entries UNION ALL SELECT * FROM plan_entries ORDER BY created DESC,id DESC,kind LIMIT 51 OFFSET ?`,user,user,user,user,user,user,user,user,offset);
    const page=rows.slice(0,50);
    const payments=page.filter(row=>row.kind==='deposit'||row.kind==='withdrawal');
