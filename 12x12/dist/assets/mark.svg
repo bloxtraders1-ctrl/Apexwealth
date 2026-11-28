@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
   <defs>
     <linearGradient id="metal" x1="7" y1="8" x2="34" y2="32" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#e4faff"/>
-      <stop offset=".46" stop-color="#75e0f3"/>
-      <stop offset="1" stop-color="#628aec"/>
+      <stop stop-color="#f1ffd9"/>
+      <stop offset=".46" stop-color="#d2fb88"/>
+      <stop offset="1" stop-color="#88b875"/>
     </linearGradient>
   </defs>
-  <rect x="1.5" y="1.5" width="37" height="37" rx="11" fill="#101d32" stroke="#426486"/>
+  <rect x="1.5" y="1.5" width="37" height="37" rx="11" fill="#182820" stroke="#51715e"/>
   <path fill="url(#metal)" d="M8 11h6.4L32 29h-6.4L8 11Zm17.6 0H32l-8.2 8.4-3.2-3.3L25.6 11ZM8 29l8.2-8.4 3.2 3.3-5 5.1H8Z"/>
 </svg>

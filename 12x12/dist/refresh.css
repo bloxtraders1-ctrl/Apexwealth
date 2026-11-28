@@ -425,3 +425,53 @@ footer a { min-height: 36px; display: inline-flex; align-items: center; }
  .home-tier-grid .home-tier + .home-tier { border-top: 1px solid var(--line); }
  footer { gap: 6px 12px; }
 }
+
+.plan-calculator { max-width: 50rem; margin-top: 24px; }
+.calculator .amount-box {
+  background: var(--inset);
+  border-color: var(--line);
+}
+.calculator .amount-box > span:first-child { color: var(--muted); }
+.calculator .amount-box input { background: transparent; }
+.calculator .amount-box:focus-within { border-color: var(--accent); }
+input[type="range"] {
+  background: linear-gradient(to right, var(--accent) 0 var(--progress), var(--line) var(--progress) 100%);
+}
+input[type="range"]::-webkit-slider-thumb { border-color: var(--inset); }
+input[type="range"]::-moz-range-thumb { border-color: var(--inset); }
+.steps li::before {
+  background: var(--deep-accent);
+  border-color: var(--line);
+  color: var(--accent);
+}
+.steps li:not(:last-child)::after { border-color: var(--line); }
+.wallet-dialog .wallet-cashier-tabs button[aria-pressed="false"] { background: var(--raised); }
+
+.skip-link { color: var(--canvas); }
+.panel:hover { border-color: var(--line); }
+.tier-card:nth-child(n):hover { border-top-color: var(--accent); }
+.muted-button:not(:disabled):hover { background: var(--deep-accent); }
+.wallet-dialog .wallet-cashier-tabs button[aria-pressed="false"]:hover {
+  background: var(--deep-accent);
+  color: var(--accent);
+}
+.wallet-dialog .wallet-coin { background: var(--deep-accent); color: var(--accent); }
+.wallet-dialog .wallet-content { scrollbar-color: var(--line) var(--inset); }
+.cashier-tx-help .cashier-tx-banner:focus-visible { outline-color: var(--accent); }
+.affiliate { --affiliate-lilac: #dbc286; }
+.network, .square-icon, .teaser-icon {
+  background: var(--deep-accent);
+  border-color: var(--line);
+  color: var(--accent);
+}
+.plan-summary span + span::before { color: var(--accent); }
+#metrics .plan-fact + .plan-fact { border-color: var(--line); }
+.wallet-art { background: var(--deep-accent); color: var(--accent); }
+
+.mobile-review :is(.review-toolbar, .review-stage, .review-display, .review-phone, .review-phone iframe) {
+  background: var(--inset);
+  border-color: var(--line);
+}
+.mobile-review .review-toolbar label { color: var(--muted); }
+.mobile-review .review-phone { box-shadow: inset 0 0 0 1px var(--line); }
+.mobile-review .review-actions button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }

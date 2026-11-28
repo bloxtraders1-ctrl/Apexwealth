@@ -31,7 +31,8 @@ export function calc(separate=true, tier=tiers[0]) {
  $('amount-error').textContent=valid?'':'Enter '+usd(min)+'–'+usd(max)+' with up to two decimal places.';
  if(valid){range.value=n;range.style.setProperty('--progress',((n-min)/(max-min)*100)+'%');}
  $('daily').textContent=valid?usd(daily):'—';$('term').textContent=valid?usd(daily*days):'—';
- $('principal-note').textContent=separate?'Your invested principal unlocks separately at maturity. Crypto withdrawals are subject to the daily cap.':'The '+days+'-day total includes your invested principal. Crypto withdrawals are subject to the daily cap.';
+ const principalNote=$('principal-note');
+ if(principalNote)principalNote.textContent=separate?'Your invested principal unlocks separately at maturity. Crypto withdrawals are subject to the daily cap.':'The '+days+'-day total includes your invested principal. Crypto withdrawals are subject to the daily cap.';
  if(!valid){$('plot').replaceChildren();return;}
  const x=i=>50+i*516/days,y=i=>76-i*64.8/days;
  const line=Array.from({length:days},(_,j)=>' H'+x(j+1)+' V'+y(j+1)).join('');
