@@ -71,6 +71,7 @@ test('Google sign-up and returning login reuse the same 12x12 account and sessio
  assert.equal((await f.call('status',null,newSession)).user,account);
  assert.equal((await f.call('status',null,session)).user,null);
  assert.equal(f.DB.prepare('SELECT email FROM login_accounts WHERE id=?').bind(account).first().email,'google@example.net');
+ assert.equal(f.DB.prepare('SELECT SUM(signups) AS total FROM analytics_signups').bind().first().total,1);
 });
 
 test('matching emails require explicit password-confirmed linking and preserve the account ID and wallet ownership',async t=>{

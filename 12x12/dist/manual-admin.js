@@ -5,8 +5,8 @@ import {cashier,cents,when,assetLabel,statusLabel,field,button,notice,bindForm,s
 const root=document.getElementById('manual-admin');
 const view=element('section',null,'manual-view');
 const tabs=element('nav',null,'manual-tabs');
-const sections={deposit:'Deposit queue',withdrawal:'Withdrawal queue',users:'Users',support:'Support tickets',settings:'Networks and limits',paydays:'Payday exceptions'};
-let options;
+const sections={deposit:'Deposit queue',withdrawal:'Withdrawal queue',users:'Users',support:'Support tickets',settings:'Networks and limits',paydays:'Payday exceptions',analytics:'Analytics'};
+let options,stopAnalytics;
 
 async function start(){
  ({options}=await cashier('admin/options'));
@@ -18,6 +18,8 @@ async function start(){
  await open(Object.hasOwn(sections,tab)?tab:'deposit');
 }
 async function open(section){
+ stopAnalytics?.();
+ stopAnalytics=null;
  for(const tab of tabs.children)tab.setAttribute('aria-pressed',String(tab.dataset.section===section));
  const content=element('div');
  view.replaceChildren(content);
@@ -27,6 +29,10 @@ async function open(section){
    if(location.hash==='#investment-reserve')document.getElementById('investment-reserve')?.scrollIntoView();
   }
   else if(section==='paydays')await showPaydaySkips(content);
+  else if(section==='analytics'){
+   const {mountAnalytics}=await import('./admin-analytics.js');
+   if(content.isConnected)stopAnalytics=mountAnalytics(content);
+  }
   else if(section==='users')await users(content);
   else if(section==='support')await mountSupport(content,{admin:true});
   else await queue(content,section,'open');

@@ -1,6 +1,27 @@
 import {tiers} from './tiers.js';
 import {$,fillIcons,renderMetrics,calc} from './ui.js';
 const page=document.body.dataset.page;
+if(page&&!['manual-admin','cashier-review'].includes(page)&&navigator.globalPrivacyControl!==true&&navigator.doNotTrack!=='1'){
+ function startVisits(){
+  let sentPageView=false, pending=false;
+  function checkIn(){
+   if(document.visibilityState!=='visible'||pending)return;
+   const heartbeat=sentPageView;
+   sentPageView=true;
+   pending=true;
+   void fetch('/api/analytics/visit',{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({page,heartbeat}),
+    keepalive:true,signal:AbortSignal.timeout(8000)
+   }).catch(()=>{}).finally(()=>{pending=false;});
+  }
+  checkIn();
+  document.addEventListener('visibilitychange',checkIn);
+  setInterval(checkIn,60_000);
+ }
+ if(document.prerendering)document.addEventListener('prerenderingchange',startVisits,{once:true});
+ else startVisits();
+}
+
 let separate=true;
 let refreshCalculator;
 const policy=$('plan-policy');

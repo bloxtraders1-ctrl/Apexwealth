@@ -1,0 +1,46 @@
+.analytics-heading,.analytics-tools{
+ display:flex;
+ flex-wrap:wrap;
+ align-items:center;
+ gap:.65rem;
+}
+.analytics-heading{justify-content:space-between}
+.analytics-heading h2{margin:0}
+.analytics-tools .field{width:auto}
+.analytics-cards{
+ display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(min(100%,10rem),1fr));
+ gap:.75rem;
+ margin-block:1rem;
+}
+.analytics-card{min-width:0}
+.analytics-card strong{
+ display:block;
+ margin-top:.35rem;
+ font-size:clamp(1.45rem,3vw,2.1rem);
+ font-variant-numeric:tabular-nums;
+ overflow-wrap:anywhere;
+}
+.analytics-table{
+ width:100%;
+ border-collapse:collapse;
+ table-layout:fixed;
+ font-size:.875rem;
+}
+.analytics-table caption{
+ margin:.4rem 0;
+ text-align:left;
+ font-weight:600;
+}
+.analytics-table :is(th,td){
+ border-bottom:1px solid var(--line,#30463b);
+ padding:.65rem .4rem;
+ overflow-wrap:anywhere;
+ text-align:right;
+ font-variant-numeric:tabular-nums;
+}
+.analytics-table th:first-child{width:28%;text-align:left}
+.analytics-table tbody th{font-weight:500}
+
+.analytics-online{max-width:23rem;margin-block:.75rem}
+.analytics-online small{display:block;margin-top:.3rem}

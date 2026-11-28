@@ -1,3 +1,4 @@
+import {analyticsSummary,onlineVisitors} from './analytics.mjs';
 import {walletAccounts} from './wallet-accounts.mjs';
 import {supportTickets} from './support.mjs';
 import {assets,normalizeAddress,normalizeTx,parseDecimal,formatDecimal,spotPrice,supportsWithdrawal} from './manual-assets.mjs';
@@ -103,6 +104,8 @@ export async function manualCashier(req,env,user,{price=spotPrice,clock=()=>Math
    LEFT JOIN manual_account_controls c ON c.user_id=ids.id WHERE ids.id=?`,accountId);
 
   if(req.method==='GET'){
+   if(route==='admin/analytics')return json(await analyticsSummary(all,url.searchParams.get('days'),now));
+   if(route==='admin/analytics/online')return json(await onlineVisitors(read,now));
    if(supportRoute==='support/tickets')return json(await support.list(url.searchParams.get('offset'),adminSupport));
    if(supportRoute==='support/thread')return json(await support.thread(url.searchParams.get('id'),adminSupport));
    if(route==='profile')return json(await wallet.profile());

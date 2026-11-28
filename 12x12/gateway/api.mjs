@@ -1,3 +1,4 @@
+import {recordPageView} from './analytics.mjs';
 import {ZeroAddress,verifyMessage,parseUnits} from 'ethers';
 import settings from '../dist/config.json' with {type:'json'};
 import {chain,check,address,same} from './chain.mjs';
@@ -18,6 +19,7 @@ function settlementReadiness(config,rpcUrl,net){
 export async function handleAPI(req,env,user,mode,chainOverride){
  try{
   const url=new URL(req.url),route=url.pathname.slice(5),cfg=env.settings||settings;
+  if(route==='analytics/visit')return await recordPageView(req,env.DB);
   const enabled=Boolean(cfg.vaultAddress&&cfg.factoryAddress);
   if(route==='launch'&&req.method==='GET'){
    const schedule=await env.DB.prepare('SELECT launch_at AS launchAt, unixepoch() AS now FROM platform_launch WHERE id=1').bind().first();

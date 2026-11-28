@@ -44,9 +44,10 @@ test('startup reconciles a missing migration history without recreating receipts
   const db=await prepareTursoDatabase(sqlite);
   const launch=await db.prepare('SELECT launch_at FROM platform_launch').bind().first();
   assert.deepEqual(launch,previousLaunch);
-  assert.equal((await db.prepare('SELECT COUNT(*) AS total FROM turso_migrations').bind().first()).total,files.length+5);
+  assert.equal((await db.prepare('SELECT COUNT(*) AS total FROM turso_migrations').bind().first()).total,files.length+7);
   assert.ok(await db.prepare("SELECT name FROM sqlite_schema WHERE name='receipt_user'").bind().first());
   assert.equal((await db.prepare("SELECT email FROM login_accounts WHERE id='u1'").bind().first()).email,'wal@example.test');
+  assert.equal((await db.prepare('SELECT COUNT(*) AS total FROM analytics_signups').bind().first()).total,0);
   assert.equal((await db.prepare('SELECT daily_bps FROM manual_policy WHERE id=1').bind().first()).daily_bps,1000);
   await prepareTursoDatabase(sqlite);
   assert.deepEqual(await db.prepare('SELECT launch_at FROM platform_launch').bind().first(),launch);

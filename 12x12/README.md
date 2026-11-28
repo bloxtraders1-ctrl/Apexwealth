@@ -144,3 +144,18 @@ Node service startup applies migration 0019 automatically to SQLite or Turso.
 Apply it to the bound D1 database before deploying the Worker. Existing
 members must sign in with their password and confirm it in Profile to link
 Google. A Google-only account uses the same account and session tables.
+
+### Admin analytics
+
+Open **Admin cashier → Analytics** or visit `/admin/cashier?tab=analytics`.
+Choose a 7-, 30-, or 90-day UTC window. Unique visitors are estimated from
+first-party browser identifiers and deduplicated over the chosen window. Page
+views count repeat visits to a page. New signups count successful account
+creations by email or Google. The all-time account total includes earlier
+accounts; per-day signup and visitor history starts with the analytics release.
+**Online now** counts unique browsers seen over the last five minutes,
+including guests. Visible site tabs check in about once per minute without
+adding page views. The admin count refreshes every 20 seconds.
+
+Node service startup applies migrations 0020 and 0021 automatically to SQLite or Turso.
+Apply the migration to the bound D1 database before deploying the Worker.
