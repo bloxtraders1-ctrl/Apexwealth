@@ -1,3 +1,4 @@
+import {addGoogleSignIn} from './google-login.js';
 import {createWalletControl} from './wallet-dialog.js';
 import {api,element,link,setKey} from './cashier-api.js';
 import {icon} from './ui.js';
@@ -10,6 +11,7 @@ const next=target.origin===location.origin&&authPages.includes(target.pathname)?
 const mode=document.body.dataset.page;
 const form=document.getElementById('auth-form');
 if(form){
+ addGoogleSignIn(form,mode,next);
  const other=document.getElementById('switch-auth');
  other.href=other.pathname+'?next='+encodeURIComponent(next);
  form.onsubmit=async e=>{

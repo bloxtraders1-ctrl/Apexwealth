@@ -1,3 +1,4 @@
+import {addGoogleLink} from './google-login.js';
 import {api,element,link,explorer,savedKey,statuses} from './cashier-api.js';
 import {cashier,cents,when,assetLabel,statusLabel,field,button,notice,bindForm,submitButton,makeDetails,transactionLink} from './manual-ui.js';
 
@@ -73,6 +74,7 @@ async function start(){
  funds.append(metrics,walletActions);
  showNextCredit(account.nextCredit);
  info.append(form);
+ addGoogleLink(info);
  header.append(funds,info);
  accountBox.replaceChildren(header);
  section.hidden=false;

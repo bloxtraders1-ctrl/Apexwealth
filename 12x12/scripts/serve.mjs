@@ -15,7 +15,8 @@ const remote=process.env.TURSO_DATABASE_URL||process.env.TURSO_AUTH_TOKEN;
 const DB=remote?await openTurso(process.env.TURSO_DATABASE_URL,process.env.TURSO_AUTH_TOKEN):
  localDB(process.env.APEX_DB_PATH||'.cashier/accounts.sqlite');
 const settings=runtimeConfig(process.env.APEX_CONFIG_JSON);
-const env={DB,settings,BASE_RPC_URL:process.env.BASE_RPC_URL,accountEnvironment:"selfhost",APEX_CASHIER_ADMIN_IDS:process.env.APEX_CASHIER_ADMIN_IDS};
+const env={DB,settings,BASE_RPC_URL:process.env.BASE_RPC_URL,accountEnvironment:"selfhost",APEX_CASHIER_ADMIN_IDS:process.env.APEX_CASHIER_ADMIN_IDS,
+ GOOGLE_CLIENT_ID:process.env.GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET:process.env.GOOGLE_CLIENT_SECRET,GOOGLE_REDIRECT_URI:process.env.GOOGLE_REDIRECT_URI};
 const port=Number(flag('--port')||process.env.PORT||3000);
 http.createServer(async(req,res)=>{
  try{
@@ -34,7 +35,10 @@ http.createServer(async(req,res)=>{
    const chunks=[];let size=0;for await(const b of req){size+=b.length;if(size>8192){res.writeHead(413);res.end();return;}chunks.push(b);}
    const request=new Request(url,{method:req.method,headers:req.headers,body:req.method==='POST'?Buffer.concat(chunks):undefined});
    const session=await authenticate(request,env,user,'selfhost',req.socket.remoteAddress);
-   const out=session instanceof Response?session:await (url.pathname.startsWith('/api/manual/')?manualCashier(request,env,session.user):handleAPI(request,env,session.user,session.mode));res.writeHead(out.status,Object.fromEntries(out.headers));res.end(Buffer.from(await out.arrayBuffer()));return;
+   const out=session instanceof Response?session:await (url.pathname.startsWith('/api/manual/')?manualCashier(request,env,session.user):handleAPI(request,env,session.user,session.mode));
+   const headers=Object.fromEntries(out.headers);
+   const cookies=out.headers.getSetCookie();if(cookies.length)headers['set-cookie']=cookies;
+   res.writeHead(out.status,headers);res.end(Buffer.from(await out.arrayBuffer()));return;
   }
   const redirect=walletRedirect(url);
   if(redirect&&['GET','HEAD'].includes(req.method)){res.writeHead(302,{Location:redirect,'Cache-Control':'no-store'});res.end();return;}

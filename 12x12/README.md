@@ -119,3 +119,28 @@ The operator supplied opening totals of $356,651.25 deposited and $324,849.65 pa
 ### Email sign-in
 
 New accounts register and log in with an email address and password. Existing username accounts can choose **Link email to an existing account** on the login page, enter their existing credentials, and link an unused email address. The original account ID, balances, and cashier permissions remain in effect. The registration form does not send an email verification or password-reset message.
+
+### Google sign-in
+
+Create a **Web application** OAuth client in Google Auth Platform. Register
+`https://12x12.online/api/google/callback` as the authorized redirect URI for
+production (use your exact frontend origin for other deployments). Register
+a separate client and callback for staging. For local development the callback
+can be `http://localhost:3000/api/google/callback`.
+
+Set these variables on the backend (Render Node service or the Worker):
+
+- `GOOGLE_CLIENT_ID` — the Google OAuth web client ID.
+- `GOOGLE_CLIENT_SECRET` — the OAuth client secret. Keep it in the backend's secret settings.
+- `GOOGLE_REDIRECT_URI` — the exact registered callback, including `/api/google/callback`.
+
+For a Vercel frontend and Render backend, set Render's `PUBLIC_ORIGIN` to
+`https://12x12.online`. The existing Vercel `/api/*` rewrite sends the
+start and callback requests to Render on the frontend origin. The Google button
+appears when all three settings match the current origin. The standard login
+form works independently of Google.
+
+Node service startup applies migration 0019 automatically to SQLite or Turso.
+Apply it to the bound D1 database before deploying the Worker. Existing
+members must sign in with their password and confirm it in Profile to link
+Google. A Google-only account uses the same account and session tables.
