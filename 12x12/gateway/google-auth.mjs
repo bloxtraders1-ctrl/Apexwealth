@@ -128,6 +128,10 @@ export async function googleAuth(req,env,{query,session,token,issueSession,valid
  if(!account){
   const email=typeof claims.email==='string'?claims.email.trim().toLowerCase():'';
   if(claims.email_verified!==true||!validEmail(email))return fail('email');
+  if(flow.return_page==='/login'){
+   const existing=await query('SELECT 1 FROM login_accounts WHERE email=?',email).first();
+   return fail(existing?'existing':'unregistered');
+  }
   const id='apex-'+random(16);
   await query('INSERT OR IGNORE INTO login_accounts(username,id,salt,verifier,email,google_subject) VALUES(?,?,?,?,?,?)',
    id,id,random(16),'',email,claims.sub).run();

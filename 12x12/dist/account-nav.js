@@ -18,7 +18,7 @@ if(form){
   e.preventDefault();
   const feedback=document.getElementById('feedback'), pass=form.elements.password.value;
   if(mode==='register'&&pass!==document.getElementById('confirm').value){feedback.dataset.tone='error';feedback.textContent='Passwords must match.';document.getElementById('confirm').focus();return;}
-  const button=form.querySelector('button'), label=button.textContent;button.disabled=true;feedback.textContent='';button.textContent='Signing in…';
+  const button=form.querySelector('button[type=submit]'), label=button.textContent;button.disabled=true;feedback.textContent='';button.textContent='Signing in…';
   if(mode==='register')button.textContent='Creating account…';
   try{
    await api(mode,{email:form.elements.email.value,password:pass});

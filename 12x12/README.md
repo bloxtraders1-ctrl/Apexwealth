@@ -123,7 +123,7 @@ New accounts register and log in with an email address and password. Existing us
 ### Google sign-in
 
 Create a **Web application** OAuth client in Google Auth Platform. Register
-`https://12x12.online/api/google/callback` as the authorized redirect URI for
+`https://www.12x12.online/api/google/callback` as the authorized redirect URI for
 production (use your exact frontend origin for other deployments). Register
 a separate client and callback for staging. For local development the callback
 can be `http://localhost:3000/api/google/callback`.
@@ -135,10 +135,10 @@ Set these variables on the backend (Render Node service or the Worker):
 - `GOOGLE_REDIRECT_URI` — the exact registered callback, including `/api/google/callback`.
 
 For a Vercel frontend and Render backend, set Render's `PUBLIC_ORIGIN` to
-`https://12x12.online`. The existing Vercel `/api/*` rewrite sends the
-start and callback requests to Render on the frontend origin. The Google button
-appears when all three settings match the current origin. The standard login
-form works independently of Google.
+`https://www.12x12.online`. The existing Vercel `/api/*` rewrite sends the
+start and callback requests to Render on the frontend origin. The Google buttons
+appear on the login and registration pages. They start Google authentication
+when all three settings match the current origin. Email/password works independently.
 
 Node service startup applies migration 0019 automatically to SQLite or Turso.
 Apply it to the bound D1 database before deploying the Worker. Existing

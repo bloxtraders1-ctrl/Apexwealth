@@ -8,7 +8,8 @@ const outcomes={
  linked:'Google is linked to this 12x12 account.',
  linked_elsewhere:'This Google account is already linked.',
  email:'Choose a Google account with a verified email address.',
- unavailable:'Google sign-in is unavailable.'
+ unregistered:'This Google account has no 12x12 account. Select Create an account to sign up with Google.',
+ unavailable:'Google sign-in is currently unavailable. You can still use your email and password.'
 };
 
 function messageForPage(){
@@ -50,7 +51,8 @@ async function begin(intent,next,button,status,password){
   const {url}=await api('google/start',{intent,next,password});
   location.assign(url);
  }catch(error){
-  status.textContent=error.message;
+  status.textContent=error.status===503||error.status===404||!error.status
+   ?outcomes.unavailable:error.message;
   button.disabled=false;
  }
 }
@@ -59,13 +61,8 @@ export function addGoogleSignIn(form,intent,next){
  const feedback=document.getElementById('feedback');
  const message=messageForPage();
  if(message)feedback.textContent=message;
- void api('google/status').then(({enabled})=>{
-  if(!enabled)return;
-  const button=googleButton('Continue with Google');
-  button.type='button';
-  button.onclick=()=>begin(intent,next,button,feedback);
-  form.append(button);
- }).catch(()=>{});
+ const button=form.querySelector('#google-auth-button');
+ if(button)button.onclick=()=>begin(intent,next,button,feedback);
 }
 
 export function addGoogleLink(container){

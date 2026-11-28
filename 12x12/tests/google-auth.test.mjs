@@ -49,6 +49,10 @@ function fixture(t){
 test('Google sign-up and returning login reuse the same 12x12 account and session format',async t=>{
  const f=fixture(t);
  assert.equal((await (await f.call('google/status')).json()).enabled,true);
+ const fromLogin=await (await f.open()).finish();
+ assert.match(fromLogin.headers.get('location'),/^\/login\?google=unregistered/);
+ assert.equal(cookies(fromLogin).length,1);
+ assert.equal(f.DB.prepare('SELECT COUNT(*) AS total FROM login_accounts').bind().first().total,0);
  const signup=await f.open({intent:'register',next:'/plan?invest=1'});
  const result=await signup.finish();
  assert.equal(result.status,303);
